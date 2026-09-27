@@ -53,7 +53,8 @@ Choose **Another model** to enter your own model URL, config URL, and readout.
 Any URL works if the host sends CORS headers. Hugging Face does.
 
 `make build` downloads about 13 MB of llama.cpp into `build/`, compiles the Go
-program, and copies the page. The repository has no binary files.
+program, and copies the page. The only binary file in the repository is the
+social card image.
 
 The download comes from
 [llama-cpp-builder](https://github.com/hybridgroup/llama-cpp-builder). It uses
@@ -152,6 +153,16 @@ Custom domain**, and point the DNS at GitHub Pages with `A` records for
 185.199.108.153, 185.199.109.153, 185.199.110.153, and 185.199.111.153, and a
 `CNAME` record for `www` to `hybridgroup.github.io`. A deploy from Actions does
 not read a `CNAME` file, so the setting is the only place the domain lives.
+
+## Social card
+
+`web/social-card.png` is the preview image that social sites show for a link
+to jeyzma.com. Its source is `images/social-card.svg`. Render it again after a
+change.
+
+```
+inkscape images/social-card.svg --export-type=png --export-filename=web/social-card.png -w 1200 -h 630
+```
 
 ## License
 
