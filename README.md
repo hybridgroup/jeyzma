@@ -2,6 +2,8 @@
 
 Typed decisions with a System One model, 100% local in your browser using WebAssembly written in Go.
 
+[![Jeyzma in a browser](./images/jeyzma-in-browser.png)](https://jeyzma.com)
+
 **<https://jeyzma.com>**
 
 Jeyzma asks a model typed questions about a state and shows a probability for each option. The answer comes from one forward pass over the logits, with no generated text. There is no server, no API key, and no data leaves your machine. It uses the GPU through WebGPU when available, otherwise the CPU. Written in Go using [yzma](https://github.com/hybridgroup/yzma) on [TinyGo](https://tinygo.org).
@@ -53,8 +55,8 @@ Choose **Another model** to enter your own model URL, config URL, and readout.
 Any URL works if the host sends CORS headers. Hugging Face does.
 
 `make build` downloads about 13 MB of llama.cpp into `build/`, compiles the Go
-program, and copies the page. The only binary file in the repository is the
-social card image.
+program, and copies the page. The only binary files in the repository are the
+social card and the screenshot.
 
 The download comes from
 [llama-cpp-builder](https://github.com/hybridgroup/llama-cpp-builder). It uses
