@@ -232,12 +232,12 @@
     <main class="inner">
       <p class="eyebrow">System One in your browser</p>
       <h1>Jeyzma</h1>
-      <p class="lede">Typed decisions with calibrated probabilities, from one forward pass and with no generated text.</p>
+      <p class="lede">Typed decisions with a System One model, 100% local in your browser using WebAssembly written in Go.</p>
 
       <div id="intro">
         <p>
           A System One model answers a typed question about a state. It gives a probability for each option instead of writing an answer.
-          This page runs the model completely in the local browser using WebAssembly. There is no server, no API key, and no data goes anywhere.
+          This page runs all inference in your browser using <a target="_blank" href="https://github.com/hybridgroup/yzma">yzma</a> compiled with <a target="_blank" href="https://tinygo.org/">TinyGo</a>. There is no server, no API key, and no data goes anywhere.
         </p>
 
         <details class="types">
@@ -258,8 +258,7 @@
 
         <div class="note">
           <p>
-            Uses the GPU with WebGPU when available, otherwise the CPU. Written in Go using
-            <a target="_blank" href="https://github.com/hybridgroup/yzma">yzma</a> on <a target="_blank" href="https://tinygo.org/">TinyGo</a>.
+            Uses the GPU with WebGPU when available, otherwise the CPU.
           </p>
         </div>
       </div>
