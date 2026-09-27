@@ -4,13 +4,11 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Jeyzma</title>
-    <link rel="icon" href="data:," />
+    <link rel="icon" href="yzma-icon.svg" type="image/svg+xml" />
 
     <!-- GitHub Pages cannot send the COOP and COEP headers, so the page gets
          no SharedArrayBuffer. This service worker adds them. -->
     <script src="coi-serviceworker.js"></script>
-
-    <link rel="stylesheet" href="min.css" />
 
     <!-- A host page that embeds this one has its own text. ?embed hides ours. -->
     <script>
@@ -20,104 +18,255 @@
     </script>
 
     <style>
-      body { color: #222; }
-      .container { max-width: 46rem; }
+      /* The yzma colors from yzma.ai. */
+      :root {
+        --orange: #f48122;
+        --orange-dark: #e4781f;
+        --rust: #a25618;
+        --brown: #69513d;
+        --bistre: #2f251d;
+        --cream: #fdf6ef;
 
-      .nav { padding: 14px 20px 18px; height: auto; }
-      .nav .pagename { font-size: 28px; font-weight: 700; top: 0; }
-      .nav .backend { color: #aaa; float: right; font-size: 13px; top: 12px; position: relative; }
+        --bg: #fff;
+        --text: #2f251d;
+        --muted: #69513d;
+        --faint: #9a8573;
+        --line: #eee4da;
+        --panel: #fdf6ef;
+        --track: #f1e6da;
+        --fill: #f3c9a3;
+        --link: #a25618;
+        --field: #fff;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #1b1511;
+          --text: #f3ebe3;
+          --muted: #c9b8a8;
+          --faint: #8f7b6a;
+          --line: #3a2f27;
+          --panel: #2f251d;
+          --track: #3a2f27;
+          --fill: #7a4a24;
+          --link: #f48122;
+          --field: #241c17;
+        }
+      }
 
-      h2 { font-size: 1.4em; margin: 1.4em 0 0.4em; }
+      * { box-sizing: border-box; }
+      body {
+        background: var(--bg);
+        color: var(--text);
+        font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", "Noto Sans", "Liberation Sans", Arial, sans-serif;
+        font-size: 16px;
+        line-height: 1.7;
+        margin: 0;
+      }
+      a { color: var(--link); text-underline-offset: 3px; }
+      a:hover { color: var(--orange-dark); }
+      code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.875em; }
 
-      .setup { display: flex; gap: 8px; align-items: center; }
-      .setup input { flex: 1; width: auto; font-size: 15px; }
-      .setup select { flex: 1; width: auto; font-size: 15px; margin: 0; }
-      .setup label { flex: 0 0 5.5rem; font-size: 15px; color: #555; }
-      .setup + .setup { margin-top: 8px; }
-      #custom[hidden] { display: none; }
+      header {
+        background: color-mix(in srgb, var(--bg) 85%, transparent);
+        backdrop-filter: blur(8px);
+        border-bottom: 1px solid var(--line);
+        position: sticky;
+        top: 0;
+        z-index: 10;
+      }
+      header .inner { align-items: center; display: flex; gap: 12px; height: 64px; }
+      header .brand { align-items: center; color: var(--text); display: flex; font-size: 18px; font-weight: 600; gap: 10px; text-decoration: none; }
+      header .brand img { height: 28px; }
+      header nav { display: flex; gap: 18px; margin-left: auto; font-size: 14px; }
+      header nav a { color: var(--muted); text-decoration: none; }
+      header nav a:hover { color: var(--text); }
+
+      .inner { margin: 0 auto; max-width: 48rem; padding: 0 20px; }
+      main { padding: 40px 0 64px; }
+
+      .eyebrow { color: var(--rust); font-size: 14px; font-weight: 600; margin: 0; }
+      h1 { font-size: 36px; font-weight: 500; letter-spacing: -0.02em; line-height: 1.2; margin: 4px 0 8px; }
+      .lede { color: var(--muted); font-size: 18px; margin: 0 0 24px; }
+      h2 { font-size: 22px; font-weight: 600; letter-spacing: -0.01em; margin: 40px 0 12px; }
+      p { margin: 0 0 16px; }
 
       .embed #intro { display: none; }
 
-      /* min.css does not dim disabled buttons. */
-      .btn:disabled, .btn:disabled:hover { background: #ccc; cursor: default; }
+      .note {
+        background: var(--panel);
+        border: 1px solid color-mix(in srgb, var(--orange) 35%, transparent);
+        border-radius: 16px;
+        display: flex;
+        gap: 12px;
+        margin: 16px 0;
+        padding: 16px 20px;
+      }
+      .note::before { color: var(--orange); content: "\24D8"; font-size: 18px; line-height: 1.5; }
+      .note p { margin: 0; }
+
+      #backend {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        color: var(--muted);
+        display: inline-block;
+        font-size: 13px;
+        padding: 2px 12px;
+      }
+
+      .types { margin: 16px 0; }
+      .types summary { color: var(--rust); cursor: pointer; font-size: 15px; font-weight: 600; }
+      .types summary:hover { color: var(--orange-dark); }
+      .types .table { margin-bottom: 0; }
+      .table { border: 1px solid var(--line); border-radius: 12px; margin: 16px 0; overflow-x: auto; }
+      table { border-collapse: collapse; font-size: 14px; min-width: 100%; }
+      th, td { border-bottom: 1px solid var(--line); padding: 10px 14px; text-align: left; vertical-align: top; }
+      th { font-weight: 600; }
+      tr:last-child td { border-bottom: 0; }
+
+      .field { display: flex; gap: 8px; align-items: center; margin-top: 10px; }
+      .field label { color: var(--muted); flex: 0 0 5.5rem; font-size: 14px; }
+      input, select, textarea, button { font: inherit; }
+      input, select, textarea {
+        background: var(--field);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        color: var(--text);
+        flex: 1;
+        min-width: 0;
+        padding: 8px 12px;
+      }
+      input:focus, select:focus, textarea:focus { border-color: var(--orange); outline: 2px solid color-mix(in srgb, var(--orange) 25%, transparent); }
+      textarea { display: block; resize: vertical; width: 100%; }
+      #state { font-size: 15px; }
+      #questions { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; line-height: 1.6; }
+      #custom[hidden] { display: none; }
+
+      button {
+        background: var(--rust);
+        border: 0;
+        border-radius: 10px;
+        color: #fff;
+        cursor: pointer;
+        font-size: 15px;
+        font-weight: 600;
+        padding: 8px 20px;
+      }
+      button:hover { background: var(--orange-dark); }
+      button:disabled, button:disabled:hover { background: var(--line); color: var(--faint); cursor: default; }
 
       #bar {
         appearance: none;
         border: 0;
         display: block;
-        height: 10px;
-        margin-top: 10px;
+        height: 8px;
+        margin-top: 12px;
         width: 100%;
       }
       /* The id selector overrides the browser [hidden] rule, so repeat it. */
       #bar[hidden] { display: none; }
-      #bar::-webkit-progress-bar { background: #eee; border-radius: 5px; }
-      #bar::-webkit-progress-value { background: #0ae; border-radius: 5px; }
-      #bar::-moz-progress-bar { background: #0ae; border-radius: 5px; }
+      #bar::-webkit-progress-bar { background: var(--track); border-radius: 4px; }
+      #bar::-webkit-progress-value { background: var(--orange); border-radius: 4px; }
+      #bar::-moz-progress-bar { background: var(--orange); border-radius: 4px; }
 
-      textarea { width: 100%; box-sizing: border-box; resize: vertical; }
-      #state { font-size: 15px; }
-      #questions { font-family: ui-monospace, monospace; font-size: 13px; }
-
-      .actions { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
-      .actions select { flex: 1; width: auto; font-size: 15px; margin: 0; }
-
-      #results { margin: 1em 0; }
-      #results:empty::after { content: "Load a model, then click Decide."; color: #999; }
-      .question {
-        background: #fafafa;
-        border-left: 3px solid #0ae;
-        margin-bottom: 0.75em;
-        padding: 8px 12px;
-      }
-      .question .text { font-weight: 600; margin-bottom: 4px; }
-      .bar { display: flex; align-items: center; gap: 8px; margin: 3px 0; font-size: 14px; }
-      .bar .name { flex: 0 0 9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-      .bar .track { flex: 1; height: 12px; background: #e5e5e5; border-radius: 3px; overflow: hidden; }
-      .bar .fill { display: block; height: 100%; background: #9cd; }
-      .bar.top .name { font-weight: 700; }
-      .bar.top .fill { background: #0ae; }
-      .bar .value { flex: 0 0 3.5rem; text-align: right; font-family: ui-monospace, monospace; }
-
-      #status { color: #777; font-size: 13px; margin: 0.75em 0 1.5em; min-height: 1.2em; }
+      #status { color: var(--faint); font-size: 13px; margin: 12px 0 0; min-height: 1.4em; }
       #status.bad { color: #d33; }
+
+      #results:empty::after { color: var(--faint); content: "Load a model, then click Decide."; }
+      .question {
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        margin-bottom: 12px;
+        padding: 14px 18px;
+      }
+      .question .text { font-weight: 600; margin-bottom: 6px; }
+      .bar { display: flex; align-items: center; gap: 10px; margin: 4px 0; font-size: 14px; }
+      .bar .name { flex: 0 0 9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .bar .track { flex: 1; height: 10px; background: var(--track); border-radius: 5px; overflow: hidden; }
+      .bar .fill { display: block; height: 100%; background: var(--fill); border-radius: 5px; }
+      .bar.top .name { color: var(--rust); font-weight: 700; }
+      .bar.top .fill { background: var(--orange); }
+      .bar .value { color: var(--muted); flex: 0 0 3.5rem; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; text-align: right; }
+
+      @media (prefers-color-scheme: dark) {
+        .bar.top .name { color: var(--orange); }
+      }
+
+      footer { border-top: 1px solid var(--line); color: var(--faint); font-size: 13px; padding: 20px 0 40px; }
+
+      @media (max-width: 600px) {
+        h1 { font-size: 30px; }
+        .bar .name { flex-basis: 6rem; }
+        .field label { flex-basis: 4.5rem; }
+      }
     </style>
   </head>
 
   <body>
-    <div class="nav">
-      <div class="container">
-        <span class="pagename">Jeyzma</span>
-        <span class="backend" id="backend">looking for a backend</span>
+    <header>
+      <div class="inner">
+        <a class="brand" href="./"><img src="yzma-icon.svg" alt="" />Jeyzma</a>
+        <nav>
+          <a target="_blank" href="https://yzma.ai">yzma</a>
+          <a target="_blank" href="https://github.com/hybridgroup/jeyzma">GitHub</a>
+        </nav>
       </div>
-    </div>
+    </header>
 
-    <div class="container">
-      <p id="intro">
-        This page runs a System One model completely in the local browser using WebAssembly. There is no server, no API key, and no data goes anywhere.
-        The model answers typed questions about a state with a probability for each option, from one forward pass and with no generated text.
-        Uses GPU with WebGPU when available, otherwise uses CPU.
-        Written in Go using <a target="_blank" href="https://github.com/hybridgroup/yzma">yzma</a> on <a target="_blank" href="https://tinygo.org/">TinyGo</a>.
-        <a target="_blank" href="https://github.com/hybridgroup/jeyzma">Source code is available here</a>.
-      </p>
+    <main class="inner">
+      <p class="eyebrow">System One in your browser</p>
+      <h1>Jeyzma</h1>
+      <p class="lede">Typed decisions with calibrated probabilities, from one forward pass and with no generated text.</p>
+
+      <div id="intro">
+        <p>
+          A System One model answers a typed question about a state. It gives a probability for each option instead of writing an answer.
+          This page runs the model completely in the local browser using WebAssembly. There is no server, no API key, and no data goes anywhere.
+        </p>
+
+        <details class="types">
+          <summary>Question types</summary>
+          <div class="table">
+            <table>
+              <thead>
+                <tr><th>Type</th><th>Question</th><th>Answer space</th><th>Example output</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>Choice</td><td>Which team handles this?</td><td><code>billing</code>, <code>technical</code>, <code>sales</code></td><td><code>billing</code></td></tr>
+                <tr><td>Score</td><td>How urgent is this?</td><td><code>low</code>, <code>medium</code>, <code>high</code></td><td><code>high</code></td></tr>
+                <tr><td>Noul</td><td>The customer is angry.</td><td><code>true</code>, <code>false</code></td><td><code>true</code></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </details>
+
+        <div class="note">
+          <p>
+            Uses the GPU with WebGPU when available, otherwise the CPU. Written in Go using
+            <a target="_blank" href="https://github.com/hybridgroup/yzma">yzma</a> on <a target="_blank" href="https://tinygo.org/">TinyGo</a>.
+          </p>
+        </div>
+      </div>
+
+      <p><span id="backend">looking for a backend</span></p>
 
       <h2>Model</h2>
 
-      <div class="setup">
+      <div class="field">
         <select id="preset" aria-label="Model choice"></select>
-        <button id="load" class="btn btn-a btn-sm">Load</button>
+        <button id="load">Load</button>
       </div>
 
       <div id="custom" hidden>
-        <div class="setup">
+        <div class="field">
           <label for="model">Model</label>
           <input id="model" type="text" placeholder="GGUF URL" />
         </div>
-        <div class="setup">
+        <div class="field">
           <label for="config">Config</label>
           <input id="config" type="text" placeholder="readout config URL" />
         </div>
-        <div class="setup">
+        <div class="field">
           <label for="readout">Readout</label>
           <select id="readout">
             <option value="jev">Jev-Style</option>
@@ -126,7 +275,7 @@
         </div>
       </div>
 
-      <div class="setup">
+      <div class="field">
         <label for="mode">Questions</label>
         <select id="mode">
           <option value="exact">exact, each question sees only the state</option>
@@ -144,9 +293,9 @@
 
       <textarea id="questions" rows="8" aria-label="Questions as a JSON list" spellcheck="false"></textarea>
 
-      <div class="actions">
+      <div class="field">
         <select id="example" aria-label="Example"></select>
-        <button id="decide" class="btn btn-a btn-sm" disabled>Decide</button>
+        <button id="decide" disabled>Decide</button>
       </div>
 
       <div id="status">starting</div>
@@ -154,7 +303,15 @@
       <h2>Answers</h2>
 
       <div id="results"></div>
-    </div>
+    </main>
+
+    <footer>
+      <div class="inner">
+        Powered by <a target="_blank" href="https://github.com/hybridgroup/yzma">yzma</a> and
+        <a target="_blank" href="https://github.com/ggml-org/llama.cpp">llama.cpp</a>.
+        <a target="_blank" href="https://github.com/hybridgroup/jeyzma">Source code</a>.
+      </div>
+    </footer>
 
     <script>
       const $ = (id) => document.getElementById(id);
