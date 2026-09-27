@@ -1,0 +1,375 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Jeyzma</title>
+    <link rel="icon" href="data:," />
+
+    <!-- GitHub Pages cannot send the COOP and COEP headers, so the page gets
+         no SharedArrayBuffer. This service worker adds them. -->
+    <script src="coi-serviceworker.js"></script>
+
+    <link rel="stylesheet" href="min.css" />
+
+    <!-- A host page that embeds this one has its own text. ?embed hides ours. -->
+    <script>
+      if (new URLSearchParams(location.search).has("embed")) {
+        document.documentElement.classList.add("embed");
+      }
+    </script>
+
+    <style>
+      body { color: #222; }
+      .container { max-width: 46rem; }
+
+      .nav { padding: 14px 20px 18px; height: auto; }
+      .nav .pagename { font-size: 28px; font-weight: 700; top: 0; }
+      .nav .backend { color: #aaa; float: right; font-size: 13px; top: 12px; position: relative; }
+
+      h2 { font-size: 1.4em; margin: 1.4em 0 0.4em; }
+
+      .setup { display: flex; gap: 8px; align-items: center; }
+      .setup input { flex: 1; width: auto; font-size: 15px; }
+      .setup select { flex: 1; width: auto; font-size: 15px; margin: 0; }
+      .setup label { flex: 0 0 5.5rem; font-size: 15px; color: #555; }
+      .setup + .setup { margin-top: 8px; }
+      #custom[hidden] { display: none; }
+
+      .embed #intro { display: none; }
+
+      /* min.css does not dim disabled buttons. */
+      .btn:disabled, .btn:disabled:hover { background: #ccc; cursor: default; }
+
+      #bar {
+        appearance: none;
+        border: 0;
+        display: block;
+        height: 10px;
+        margin-top: 10px;
+        width: 100%;
+      }
+      /* The id selector overrides the browser [hidden] rule, so repeat it. */
+      #bar[hidden] { display: none; }
+      #bar::-webkit-progress-bar { background: #eee; border-radius: 5px; }
+      #bar::-webkit-progress-value { background: #0ae; border-radius: 5px; }
+      #bar::-moz-progress-bar { background: #0ae; border-radius: 5px; }
+
+      textarea { width: 100%; box-sizing: border-box; resize: vertical; }
+      #state { font-size: 15px; }
+      #questions { font-family: ui-monospace, monospace; font-size: 13px; }
+
+      .actions { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
+      .actions select { flex: 1; width: auto; font-size: 15px; margin: 0; }
+
+      #results { margin: 1em 0; }
+      #results:empty::after { content: "Load a model, then click Decide."; color: #999; }
+      .question {
+        background: #fafafa;
+        border-left: 3px solid #0ae;
+        margin-bottom: 0.75em;
+        padding: 8px 12px;
+      }
+      .question .text { font-weight: 600; margin-bottom: 4px; }
+      .bar { display: flex; align-items: center; gap: 8px; margin: 3px 0; font-size: 14px; }
+      .bar .name { flex: 0 0 9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .bar .track { flex: 1; height: 12px; background: #e5e5e5; border-radius: 3px; overflow: hidden; }
+      .bar .fill { display: block; height: 100%; background: #9cd; }
+      .bar.top .name { font-weight: 700; }
+      .bar.top .fill { background: #0ae; }
+      .bar .value { flex: 0 0 3.5rem; text-align: right; font-family: ui-monospace, monospace; }
+
+      #status { color: #777; font-size: 13px; margin: 0.75em 0 1.5em; min-height: 1.2em; }
+      #status.bad { color: #d33; }
+    </style>
+  </head>
+
+  <body>
+    <div class="nav">
+      <div class="container">
+        <span class="pagename">Jeyzma</span>
+        <span class="backend" id="backend">looking for a backend</span>
+      </div>
+    </div>
+
+    <div class="container">
+      <p id="intro">
+        This page runs a System One model completely in the local browser using WebAssembly. There is no server, no API key, and no data goes anywhere.
+        The model answers typed questions about a state with a probability for each option, from one forward pass and with no generated text.
+        Uses GPU with WebGPU when available, otherwise uses CPU.
+        Written in Go using <a target="_blank" href="https://github.com/hybridgroup/yzma">yzma</a> on <a target="_blank" href="https://tinygo.org/">TinyGo</a>.
+        <a target="_blank" href="https://github.com/hybridgroup/jeyzma">Source code is available here</a>.
+      </p>
+
+      <h2>Model</h2>
+
+      <div class="setup">
+        <select id="preset" aria-label="Model choice"></select>
+        <button id="load" class="btn btn-a btn-sm">Load</button>
+      </div>
+
+      <div id="custom" hidden>
+        <div class="setup">
+          <label for="model">Model</label>
+          <input id="model" type="text" placeholder="GGUF URL" />
+        </div>
+        <div class="setup">
+          <label for="config">Config</label>
+          <input id="config" type="text" placeholder="readout config URL" />
+        </div>
+        <div class="setup">
+          <label for="readout">Readout</label>
+          <select id="readout">
+            <option value="jev">Jev-Style</option>
+            <option value="jevk5">JevK5</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="setup">
+        <label for="mode">Questions</label>
+        <select id="mode">
+          <option value="exact">exact, each question sees only the state</option>
+          <option value="batched">batched, faster, can differ slightly</option>
+        </select>
+      </div>
+
+      <progress id="bar" max="100" value="0" hidden></progress>
+
+      <h2>State</h2>
+
+      <textarea id="state" rows="3" aria-label="State"></textarea>
+
+      <h2>Questions</h2>
+
+      <textarea id="questions" rows="8" aria-label="Questions as a JSON list" spellcheck="false"></textarea>
+
+      <div class="actions">
+        <select id="example" aria-label="Example"></select>
+        <button id="decide" class="btn btn-a btn-sm" disabled>Decide</button>
+      </div>
+
+      <div id="status">starting</div>
+
+      <h2>Answers</h2>
+
+      <div id="results"></div>
+    </div>
+
+    <script>
+      const $ = (id) => document.getElementById(id);
+
+      // System One models. Neither GGUF holds the readout values, so each one
+      // needs its config file.
+      const MODELS = [
+        {
+          name: "Jev-Style 0.8B Decision v3 (530 MB)",
+          url: "https://huggingface.co/chaoliangUNSW/Jev-Style-0.8B-Decision-v3-GGUF/resolve/main/Jev-Style-0.8B-Decision-v3-Q4_K_M.gguf",
+          config: "https://huggingface.co/chaoliangUNSW/Jev-Style-0.8B-Decision-v3-GGUF/resolve/main/readout_config.json",
+          readout: "jev",
+        },
+        {
+          name: "JevK5 2B v0.2 (2.0 GB)",
+          url: "https://huggingface.co/alibiserikbay/JevK5-GGUF/resolve/main/jevk5-2b-v0.2-Q8_0.gguf",
+          config: "https://huggingface.co/alibiserikbay/JevK5-2B/resolve/main/jevk5_config.json",
+          readout: "jevk5",
+        },
+      ];
+
+      // A question with options is a choice, one without is yes or no, and a
+      // score picks one of the levels in order.
+      const EXAMPLES = [
+        {
+          name: "Support ticket",
+          state: '{"ticket": "I was charged twice for my subscription and want a refund."}',
+          questions: [
+            { question: "Which team handles this?", options: { billing: "payments, invoices", technical: "bugs", sales: "new purchases" } },
+            { question: "The customer is angry." },
+            { type: "score", question: "How urgent is this?", options: ["low", "medium", "high"] },
+          ],
+        },
+        {
+          name: "Smart home",
+          state: '{"time": "02:14", "motion": "back door", "residents": "asleep", "alarm": "armed"}',
+          questions: [
+            { question: "What should the house do?", options: { ignore: "nothing unusual", notify: "send a phone alert", siren: "sound the alarm" } },
+            { question: "This could be an intruder." },
+          ],
+        },
+        {
+          name: "Comment moderation",
+          state: "Great tutorial! Check out my channel for free crypto giveaways, link in bio.",
+          questions: [
+            { question: "What kind of comment is this?", options: ["praise", "question", "spam", "abuse"] },
+            { question: "The comment should be removed." },
+          ],
+        },
+      ];
+
+      const params = new URLSearchParams(location.search);
+      const query = new URLSearchParams();
+      for (const key of ["mode", "gpu"]) {
+        if (params.get(key)) query.set(key, params.get(key));
+      }
+      const worker = new Worker("./worker.js" + (query.size ? "?" + query : ""));
+
+      let ready = false;
+      let downloading = false;
+      let asked = [];
+
+      for (const [i, entry] of MODELS.entries()) {
+        $("preset").add(new Option(entry.name, String(i)));
+      }
+      $("preset").add(new Option("Another model", "custom"));
+
+      function pickModel() {
+        const entry = MODELS[$("preset").value];
+        $("custom").hidden = !!entry;
+        if (entry) {
+          $("model").value = entry.url;
+          $("config").value = entry.config;
+          $("readout").value = entry.readout;
+        }
+      }
+      $("preset").onchange = pickModel;
+      pickModel();
+
+      for (const [i, entry] of EXAMPLES.entries()) {
+        $("example").add(new Option(entry.name, String(i)));
+      }
+
+      function pickExample() {
+        const entry = EXAMPLES[$("example").value];
+        $("state").value = entry.state;
+        $("questions").value = "[\n" + entry.questions.map((q) => "  " + JSON.stringify(q)).join(",\n") + "\n]";
+        $("results").replaceChildren();
+      }
+      $("example").onchange = pickExample;
+      pickExample();
+
+      function status(text, bad) {
+        $("status").textContent = text;
+        $("status").className = bad ? "bad" : "";
+      }
+
+      // bar shows the model download progress. A percent of -1 hides it.
+      function bar(percent) {
+        $("bar").hidden = percent < 0;
+        $("bar").value = percent < 0 ? 0 : percent;
+      }
+
+      function busy(yes) {
+        $("decide").disabled = yes || !ready;
+        $("load").disabled = yes || downloading;
+      }
+
+      // show draws one bar per option for each question.
+      function show(list) {
+        $("results").replaceChildren();
+        list.forEach((r, i) => {
+          const box = document.createElement("div");
+          box.className = "question";
+
+          const text = document.createElement("div");
+          text.className = "text";
+          text.textContent = (asked[i] && asked[i].question) || "question " + (i + 1);
+          box.appendChild(text);
+
+          // A score answers with the index of a level, so show the level.
+          const levels = asked[i] && asked[i].type === "score" ? asked[i].options : null;
+
+          r.options.forEach((option, k) => {
+            const p = r.probabilities[k];
+            const name = (levels && levels[Number(option)]) || option;
+            const row = document.createElement("div");
+            row.className = "bar" + (option === r.answer ? " top" : "");
+            row.innerHTML = '<span class="name"></span><span class="track"><span class="fill"></span></span><span class="value"></span>';
+            row.querySelector(".name").textContent = name;
+            row.querySelector(".name").title = name;
+            row.querySelector(".fill").style.width = (p * 100).toFixed(1) + "%";
+            row.querySelector(".value").textContent = p.toFixed(3);
+            box.appendChild(row);
+          });
+          $("results").appendChild(box);
+        });
+      }
+
+      worker.onmessage = (event) => {
+        const { kind, text } = event.data || {};
+        switch (kind) {
+          case "ready":
+            $("backend").textContent = text;
+            status("ready, load a model");
+            break;
+          case "status":
+            status(text);
+            break;
+          case "progress":
+            bar(parseInt(text, 10));
+            status("downloading the model " + text);
+            break;
+          case "loaded":
+            ready = true;
+            downloading = false;
+            bar(-1);
+            busy(false);
+            status("model loaded, " + text);
+            break;
+          case "result": {
+            const out = JSON.parse(text);
+            show(Array.isArray(out.result) ? out.result : [out.result]);
+            busy(false);
+            status("decided in " + out.ms + " ms");
+            break;
+          }
+          case "error":
+            downloading = false;
+            bar(-1);
+            busy(false);
+            status(text, true);
+            break;
+        }
+      };
+
+      $("load").onclick = () => {
+        if (downloading) return;
+
+        ready = false;
+        downloading = true;
+        bar(0);
+        busy(true);
+        status("waiting for the worker");
+        worker.postMessage({
+          kind: "decide-load",
+          url: $("model").value.trim(),
+          config: $("config").value.trim(),
+          readout: $("readout").value,
+          manyMode: $("mode").value,
+        });
+      };
+
+      // The mode applies when the model loads, so a change loads it again.
+      $("mode").onchange = () => {
+        if (ready) $("load").onclick();
+      };
+
+      $("decide").onclick = () => {
+        try {
+          asked = JSON.parse($("questions").value);
+        } catch (err) {
+          status("the questions are not JSON: " + err.message, true);
+          return;
+        }
+        if (!Array.isArray(asked)) asked = [asked];
+
+        busy(true);
+        status("deciding");
+        worker.postMessage({
+          kind: "decide-many",
+          state: $("state").value,
+          questions: JSON.stringify(asked),
+        });
+      };
+    </script>
+  </body>
+</html>
