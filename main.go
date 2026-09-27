@@ -117,8 +117,13 @@ func open(path, config, readout, mode string) {
 		if cfg, err = decide.ParseJevK5Config([]byte(config)); err == nil {
 			decider, err = decide.NewJevK5FromConfig(path, cfg, opts)
 		}
+	case "decider":
+		var cfg *decide.DeciderConfig
+		if cfg, err = decide.ParseDeciderConfig([]byte(config)); err == nil {
+			decider, err = decide.NewDeciderModelFromConfig(path, cfg, opts)
+		}
 	default:
-		err = fmt.Errorf("unknown readout %q, want jev or jevk5", readout)
+		err = fmt.Errorf("unknown readout %q, want jev, jevk5 or decider", readout)
 	}
 	if err != nil {
 		post("error", err.Error())

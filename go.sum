@@ -1,7 +1,7 @@
 github.com/ebitengine/purego v0.10.0 h1:QIw4xfpWT6GWTzaW5XEKy3HXoqrJGx1ijYHzTF0/ISU=
 github.com/ebitengine/purego v0.10.0/go.mod h1:iIjxzd6CiRiOG0UyXP+V1+jWqUXVjPKLAI0mRfJZTmQ=
-github.com/hybridgroup/yzma v1.28.1-0.20260927090251-e4b426e42d4c h1:S0aTDr8xshYkZTRUsI0ovVip/X+gV+MG5IV64Zi/nFM=
-github.com/hybridgroup/yzma v1.28.1-0.20260927090251-e4b426e42d4c/go.mod h1:ovV3WQ5v3X53vqo9Izg/28QHEXaVasW9b4Kgkhk05T0=
+github.com/hybridgroup/yzma v1.28.1-0.20260927134955-0a1cd493ce67 h1:mka/aV9q1nKklFdKuzQrppew3RkWuGA08P1hwYdHEhc=
+github.com/hybridgroup/yzma v1.28.1-0.20260927134955-0a1cd493ce67/go.mod h1:ovV3WQ5v3X53vqo9Izg/28QHEXaVasW9b4Kgkhk05T0=
 github.com/jupiterrider/ffi v0.8.0 h1:IH6lto8OZaRIulQYObtZibII4tq71hXT6Z+KLBcxCcQ=
 github.com/jupiterrider/ffi v0.8.0/go.mod h1:9dauhpOfNqrqk28fxuu0kkdeFtT9Qr4vbfigiuIXN7c=
 golang.org/x/sys v0.42.0 h1:omrd2nAlyT5ESRdCLYdm3+fMfNFE/+Rf4bDIQImRJeo=

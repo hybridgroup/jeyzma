@@ -43,14 +43,15 @@ make serve
 Open <http://localhost:8080>, click **Load**, and wait for the model to
 download. The browser caches it. Then click **Decide**.
 
-The list has two models.
+The list has three models.
 
 | Model | Size | Readout |
 | --- | --- | --- |
 | [Jev-Style 0.8B Decision v3](https://huggingface.co/chaoliangUNSW/Jev-Style-0.8B-Decision-v3-GGUF) | approximately 530 MB | `jev` |
 | [JevK5 2B v0.2](https://huggingface.co/alibiserikbay/JevK5-GGUF) | approximately 2.0 GB | `jevk5` |
+| [decider 0.8B](https://huggingface.co/mradermacher/decider-0.8b-GGUF) | approximately 530 MB | `decider` |
 
-Neither GGUF holds the readout values, so each model needs its config file too.
+No GGUF holds the readout values, so each model needs its config file too.
 Choose **Another model** to enter your own model URL, config URL, and readout.
 Any URL works if the host sends CORS headers. Hugging Face does.
 
@@ -106,6 +107,8 @@ make test MODEL=~/models/Jev-Style-0.8B-Decision-v3-Q4_K_M.gguf \
   CONFIG=~/models/readout_config.json TEST_FLAGS="--expect billing,true"
 make test READOUT=jevk5 MODEL=~/models/jevk5-2b-v0.2-Q8_0.gguf \
   CONFIG=~/models/jevk5_config.json
+make test READOUT=decider MODEL=~/models/decider-0.8b.Q4_K_M.gguf \
+  CONFIG=~/models/decider_config.json
 ```
 
 ## WebGPU, threads, and the service worker

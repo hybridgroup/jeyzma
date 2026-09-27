@@ -286,6 +286,7 @@
           <select id="readout">
             <option value="jev">Jev-Style</option>
             <option value="jevk5">JevK5</option>
+            <option value="decider">decider</option>
           </select>
         </div>
       </div>
@@ -331,7 +332,7 @@
     <script>
       const $ = (id) => document.getElementById(id);
 
-      // System One models. Neither GGUF holds the readout values, so each one
+      // System One models. No GGUF holds the readout values, so each one
       // needs its config file.
       const MODELS = [
         {
@@ -345,6 +346,12 @@
           url: "https://huggingface.co/alibiserikbay/JevK5-GGUF/resolve/main/jevk5-2b-v0.2-Q8_0.gguf",
           config: "https://huggingface.co/alibiserikbay/JevK5-2B/resolve/main/jevk5_config.json",
           readout: "jevk5",
+        },
+        {
+          name: "decider 0.8B (530 MB)",
+          url: "https://huggingface.co/mradermacher/decider-0.8b-GGUF/resolve/main/decider-0.8b.Q4_K_M.gguf",
+          config: "https://huggingface.co/Mapika/decider-0.8b/resolve/main/decider_config.json",
+          readout: "decider",
         },
       ];
 
