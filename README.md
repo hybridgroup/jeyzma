@@ -155,5 +155,5 @@ not read a `CNAME` file, so the setting is the only place the domain lives.
 
 ## License
 
-Apache 2.0, the same as yzma. `web/min.css` ([min](https://mincss.com)) and
-`web/coi-serviceworker.js` are MIT, and they keep their own notices.
+Apache 2.0, the same as yzma. `web/coi-serviceworker.js` is MIT and keeps its
+own notice.
