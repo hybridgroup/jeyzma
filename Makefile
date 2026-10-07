@@ -5,7 +5,7 @@ BUILD_DIR ?= build
 PORT ?= 8080
 
 # The llama.cpp release from llama-cpp-builder. v0.6.0 is the release that
-# yzma v1.29.0 installs. Laya and Julia-1 need it.
+# yzma v1.29.1 installs. Laya and Julia-1 need it.
 LLAMA_VERSION ?= v0.6.0
 
 # Use yzma-loader.js from the module that go.mod pins, not a local copy
