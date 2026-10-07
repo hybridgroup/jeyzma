@@ -26,10 +26,31 @@ const questions = option(
 const category = option("category", "");
 const expect = option("expect", "");
 const mt = process.argv.includes("--mt");
+const orders = process.argv.includes("--both") ? "both" : "";
+const request = process.argv.includes("--request");
 
-if (!modelFile || !configFile) {
-  console.error("give a model with --model and its config with --config");
+if (!modelFile || (!configFile && readout !== "gguf")) {
+  console.error("give a model with --model and its config with --config, or use --readout gguf");
   process.exit(2);
+}
+
+// toRequest turns the state and the questions into a TypeSafe /v1/systemone request.
+// The page has the same function.
+function toRequest(state, questions) {
+  let st = state;
+  try {
+    st = JSON.parse(state);
+  } catch {}
+  const out = {};
+  questions.forEach((q, i) => {
+    let type = q.type || (q.options ? "choice" : "noul");
+    let criteria = q.options;
+    if (type === "choice" && Array.isArray(criteria)) {
+      criteria = Object.fromEntries(criteria.map((name) => [name, ""]));
+    }
+    out["q" + (i + 1)] = criteria === undefined ? { type, instructions: q.question } : { type, instructions: q.question, criteria };
+  });
+  return { state: st, questions: out };
 }
 
 let programIsReady;
@@ -42,10 +63,10 @@ globalThis.yzmaOnMessage = (message) => {
   if (message.kind === "ready" || message.kind === "error") {
     programIsReady();
   }
-  if (message.kind === "loaded" || message.kind === "result" || message.kind === "error") {
+  if (["loaded", "result", "answer", "error"].includes(message.kind)) {
     onResult(message);
   }
-  if (message.kind !== "result") {
+  if (message.kind !== "result" && message.kind !== "answer") {
     console.log("[" + message.kind + "] " + message.text);
   }
 };
@@ -98,7 +119,8 @@ async function main() {
   await programReady;
 
   const loaded = next();
-  globalThis.yzmaDecideOpen("/models/decide.gguf", fs.readFileSync(configFile, "utf8"), readout, manyMode);
+  const config = configFile ? fs.readFileSync(configFile, "utf8") : "";
+  globalThis.yzmaDecideOpen("/models/decide.gguf", config, readout, manyMode, orders);
   await loaded;
 
   const many = next();
@@ -128,6 +150,24 @@ async function main() {
       failed = true;
     }
   });
+  if (request) {
+    const asked = JSON.parse(questions);
+    const ans = next();
+    globalThis.yzmaAnswer(JSON.stringify(toRequest(state, asked)));
+    const out = JSON.parse((await ans).text);
+    console.log(JSON.stringify(out, null, 2));
+
+    // Answer uses DecideMany with no category, so it must agree with it.
+    asked.forEach((q, i) => {
+      const a = out.response.answers["q" + (i + 1)];
+      const r = manyOut.result[i];
+      const ok = !a ? false : a.type === "noul" ? category !== "" || a.noul === r.probabilities[r.options.indexOf("true")] : a.type === "choice" ? a.choice === r.answer : a.score === r.expected;
+      if (!ok) {
+        console.error("question " + i + ": the /v1/systemone answer differs from DecideMany");
+        failed = true;
+      }
+    });
+  }
   if (expect) {
     const want = expect.split(",");
     manyOut.result.forEach((r, i) => {

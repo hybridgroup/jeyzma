@@ -6,7 +6,7 @@ Typed decisions with a System One model, 100% local in your browser using WebAss
 
 **<https://jeyzma.com>**
 
-Jeyzma asks a model typed questions about a state and shows a probability for each option. The answer comes from one forward pass over the logits, with no generated text. There is no server, no API key, and no data leaves your machine. It uses the GPU through WebGPU when available, otherwise the CPU. Written in Go using [yzma](https://github.com/hybridgroup/yzma) on [TinyGo](https://tinygo.org).
+Jeyzma asks a model typed questions about a state and shows a probability for each option. The answer comes from one forward pass, with no generated text. There is no server, no API key, and no data leaves your machine. It uses the GPU through WebGPU when available, otherwise the CPU. Written in Go using [yzma](https://github.com/hybridgroup/yzma) on [TinyGo](https://tinygo.org).
 
 ## How it works
 
@@ -43,15 +43,22 @@ make serve
 Open <http://localhost:8080>, click **Load**, and wait for the model to
 download. The browser caches it. Then click **Decide**.
 
-The list has three models.
+The list has five models.
 
-| Model | Size | Readout |
-| --- | --- | --- |
-| [Jev-Style 0.8B Decision v3](https://huggingface.co/chaoliangUNSW/Jev-Style-0.8B-Decision-v3-GGUF) | approximately 530 MB | `jev` |
-| [JevK5 2B v0.2](https://huggingface.co/alibiserikbay/JevK5-GGUF) | approximately 2.0 GB | `jevk5` |
-| [decider 0.8B](https://huggingface.co/mradermacher/decider-0.8b-GGUF) | approximately 530 MB | `decider` |
+| Model | Size | Readout | Config |
+| --- | --- | --- | --- |
+| [Julia-1](https://huggingface.co/ggml-org/Julia-1-GGUF) | approximately 170 MB | `gguf` | none |
+| [Laya](https://huggingface.co/ggml-org/Laya-GGUF) | approximately 450 MB | `gguf` | none |
+| [Jev-Style 0.8B Decision v3](https://huggingface.co/chaoliangUNSW/Jev-Style-0.8B-Decision-v3-GGUF) | approximately 530 MB | `jev` | `readout_config.json` |
+| [JevK5 2B v0.2](https://huggingface.co/alibiserikbay/JevK5-GGUF) | approximately 2.0 GB | `jevk5` | `jevk5_config.json` |
+| [decider 0.8B](https://huggingface.co/mradermacher/decider-0.8b-GGUF) | approximately 530 MB | `decider` | `decider_config.json` |
 
-No GGUF holds the readout values, so each model needs its config file too.
+A `gguf` model holds its readout, prompt template, and temperatures in the
+GGUF file, as converted for the llama-server `/v1/systemone` API. It loads with
+`decide.Open` and needs no config. The others need their config file too.
+Lev, OpenJev, and Kev also load as `gguf`, but their files are larger than 2 GB,
+the most a browser can hold.
+
 Choose **Another model** to enter your own model URL, config URL, and readout.
 Any URL works if the host sends CORS headers. Hugging Face does.
 
@@ -61,10 +68,10 @@ social card and the screenshot.
 
 The download comes from
 [llama-cpp-builder](https://github.com/hybridgroup/llama-cpp-builder). It uses
-the nightly build b11208, because `DecideMany` needs shim ABI 10 to share one
-state across questions. The v0.5.0 release has ABI 9, which still works but
-decodes each question separately. To use another build, pass its tag, or
-`latest` for the newest nightly build.
+v0.6.0, the release that yzma v1.29.0 installs. It has shim ABI 10, which
+`DecideMany` needs to share one state across questions, and Laya and Julia-1
+need it too. To use another build, pass its tag, or `latest` for the newest
+nightly build.
 
 ```
 make build LLAMA_VERSION=latest
@@ -97,12 +104,52 @@ The state is any text. A JSON object or list keeps its key order.
 mode is faster but can differ slightly, and on a near tie it can change a JevK5
 answer. A change of mode loads the model again.
 
+**Both orders** reads each choice question a second time with the options in
+reverse order, and averages the two. This cancels a preference for the first
+options. It also loads the model again.
+
+Each answer shows its confidence. A score question also shows the expected
+level, which is the mean of the levels weighted by their probabilities.
+
+## The /v1/systemone request
+
+Set **Input** to the request to send the same JSON that llama-server takes at
+`/v1/systemone`. The page answers it with `decide.ParseRequest` and
+`Decider.Answer`, and shows the response JSON under the bars.
+
+```json
+{
+  "state": {"ticket": "I was charged twice for my subscription and want a refund."},
+  "questions": {
+    "team": {"type": "choice", "instructions": "Which team handles this?", "criteria": {"billing": "payments, invoices", "technical": "bugs"}},
+    "angry": {"type": "noul", "instructions": "The customer is angry."},
+    "urgency": {"type": "score", "instructions": "How urgent is this?", "criteria": ["low", "medium", "high"]}
+  }
+}
+```
+
+## Page calls
+
+The Go program sets these functions for `worker.js`.
+
+| Function | What it does |
+| --- | --- |
+| `yzmaDecideLoad(modelURL, configURL, readout, manyMode, orders)` | Downloads a model, and its config unless `readout` is `gguf`. `readout` is `jev`, `jevk5`, `decider`, or `gguf`. `manyMode` is `exact` or `batched`. `orders` is `both` or empty. |
+| `yzmaDecideOpen(path, configJSON, readout, manyMode, orders)` | Loads a model that is already in the module's filesystem. |
+| `yzmaDecide(state, questionJSON, category)` | Scores one question. |
+| `yzmaDecideMany(state, questionsJSON, category)` | Scores a JSON list of questions about one state. |
+| `yzmaAnswer(requestJSON)` | Answers a `/v1/systemone` request. |
+
 ## The test
 
 The test asks three questions in Node, without a browser. It fails when
-`DecideMany` and `Decide` differ in exact mode.
+`DecideMany` and `Decide` differ in exact mode. `--request` also sends the
+questions as a `/v1/systemone` request and fails when the answers differ from
+`DecideMany`. `--both` turns on both orders.
 
 ```
+make test READOUT=gguf MODEL=~/models/Julia-1-Q8_0.gguf TEST_FLAGS="--request"
+make test READOUT=gguf MODEL=~/models/Laya-Q8_0.gguf
 make test MODEL=~/models/Jev-Style-0.8B-Decision-v3-Q4_K_M.gguf \
   CONFIG=~/models/readout_config.json TEST_FLAGS="--expect billing,true"
 make test READOUT=jevk5 MODEL=~/models/jevk5-2b-v0.2-Q8_0.gguf \

@@ -76,13 +76,16 @@ if (!isThread) {
 
       switch (message.kind) {
         case "decide-load":
-          self.yzmaDecideLoad(message.url, message.config, message.readout, message.manyMode || "");
+          self.yzmaDecideLoad(message.url, message.config, message.readout, message.manyMode || "", message.orders || "");
           break;
         case "decide":
           self.yzmaDecide(message.state, message.question, message.category || "");
           break;
         case "decide-many":
           self.yzmaDecideMany(message.state, message.questions, message.category || "");
+          break;
+        case "answer":
+          self.yzmaAnswer(message.request);
           break;
         default:
           self.postMessage({ kind: "error", text: "unknown message: " + message.kind });

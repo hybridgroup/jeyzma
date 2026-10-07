@@ -4,9 +4,9 @@
 BUILD_DIR ?= build
 PORT ?= 8080
 
-# The llama.cpp build from llama-cpp-builder. exp/decide needs shim ABI 10
-# to share one state across questions. The v0.5.0 release has ABI 9.
-LLAMA_VERSION ?= b11208
+# The llama.cpp release from llama-cpp-builder. v0.6.0 is the release that
+# yzma v1.29.0 installs. Laya and Julia-1 need it.
+LLAMA_VERSION ?= v0.6.0
 
 # Use yzma-loader.js from the module that go.mod pins, not a local copy
 # that can drift.
@@ -58,8 +58,8 @@ MODEL ?=
 CONFIG ?=
 READOUT ?= jev
 test:
-	@test -n "$(MODEL)" -a -n "$(CONFIG)" || { echo "give a model and its config: make test MODEL=/path/to/model.gguf CONFIG=/path/to/config.json"; exit 2; }
-	node test/decide.js --dir $(BUILD_DIR) --model $(MODEL) --config $(CONFIG) --readout $(READOUT) --mt $(TEST_FLAGS)
+	@test -n "$(MODEL)" || { echo "give a model: make test MODEL=/path/to/model.gguf CONFIG=/path/to/config.json"; exit 2; }
+	node test/decide.js --dir $(BUILD_DIR) --model $(MODEL) $(if $(CONFIG),--config $(CONFIG)) --readout $(READOUT) --mt $(TEST_FLAGS)
 
 clean:
 	rm -rf $(BUILD_DIR)

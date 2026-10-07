@@ -34,6 +34,7 @@ func main() {
 	js.Global().Set("yzmaDecideOpen", js.FuncOf(openModel))
 	js.Global().Set("yzmaDecide", js.FuncOf(decideOne))
 	js.Global().Set("yzmaDecideMany", js.FuncOf(decideMany))
+	js.Global().Set("yzmaAnswer", js.FuncOf(answer))
 
 	post("ready", backendReport())
 
@@ -41,26 +42,29 @@ func main() {
 	<-make(chan struct{})
 }
 
-// load(modelURL, configURL, readout, manyMode) downloads a model and its config.
-// readout is jev or jevk5, and manyMode is exact or batched.
+// load(modelURL, configURL, readout, manyMode, orders) downloads a model and its config.
+// readout is jev, jevk5, decider or gguf, manyMode is exact or batched, and orders is both or empty.
 func load(this js.Value, args []js.Value) any {
 	if len(args) < 3 {
 		post("error", "yzmaDecideLoad needs a model URL, a config URL and a readout")
 		return nil
 	}
 	modelURL, configURL, readout := args[0].String(), args[1].String(), args[2].String()
-	mode := arg(args, 3)
+	mode, orders := arg(args, 3), arg(args, 4)
 
 	go func() {
-		post("status", "downloading the config")
-		config, err := fetchText(configURL)
-		if err != nil {
-			post("error", err.Error())
-			return
+		var config string
+		if readout != "gguf" {
+			post("status", "downloading the config")
+			var err error
+			if config, err = fetchText(configURL); err != nil {
+				post("error", err.Error())
+				return
+			}
 		}
 
 		post("status", "downloading the model")
-		err = llamawasm.FetchModelFile(modelPath, modelURL, func(done, total int64) {
+		err := llamawasm.FetchModelFile(modelPath, modelURL, func(done, total int64) {
 			if total > 0 {
 				post("progress", fmt.Sprintf("%d%%", done*100/total))
 			}
@@ -70,29 +74,29 @@ func load(this js.Value, args []js.Value) any {
 			return
 		}
 
-		open(modelPath, config, readout, mode)
+		open(modelPath, config, readout, mode, orders)
 	}()
 
 	return nil
 }
 
-// openModel(path, configJSON, readout, manyMode) loads a model that is already
-// in the llama.cpp module's filesystem. A test puts the file there itself.
+// openModel(path, configJSON, readout, manyMode, orders) loads a model that is
+// already in the llama.cpp module's filesystem. A test puts the file there itself.
 func openModel(this js.Value, args []js.Value) any {
 	if len(args) < 3 {
 		post("error", "yzmaDecideOpen needs a model path, the config JSON and a readout")
 		return nil
 	}
 	path, config, readout := args[0].String(), args[1].String(), args[2].String()
-	mode := arg(args, 3)
+	mode, orders := arg(args, 3), arg(args, 4)
 
-	go open(path, config, readout, mode)
+	go open(path, config, readout, mode, orders)
 
 	return nil
 }
 
-// open loads the model at path with its config.
-func open(path, config, readout, mode string) {
+// open loads the model at path with its config. A gguf model needs no config.
+func open(path, config, readout, mode, orders string) {
 	post("status", "loading the model")
 
 	if decider != nil {
@@ -100,7 +104,7 @@ func open(path, config, readout, mode string) {
 		decider = nil
 	}
 
-	opts := decide.Options{}
+	opts := decide.Options{BothOrders: orders == "both"}
 	if mode == "batched" {
 		opts.ManyMode = decide.ManyBatched
 	}
@@ -122,8 +126,10 @@ func open(path, config, readout, mode string) {
 		if cfg, err = decide.ParseDeciderConfig([]byte(config)); err == nil {
 			decider, err = decide.NewDeciderModelFromConfig(path, cfg, opts)
 		}
+	case "gguf":
+		decider, err = decide.Open(path, opts)
 	default:
-		err = fmt.Errorf("unknown readout %q, want jev, jevk5 or decider", readout)
+		err = fmt.Errorf("unknown readout %q, want jev, jevk5, decider or gguf", readout)
 	}
 	if err != nil {
 		post("error", err.Error())
@@ -199,6 +205,42 @@ func decideMany(this js.Value, args []js.Value) any {
 			return
 		}
 		postResult(res, time.Since(start))
+	}()
+
+	return nil
+}
+
+// answer(requestJSON) answers a TypeSafe /v1/systemone request and posts the response.
+func answer(this js.Value, args []js.Value) any {
+	if len(args) < 1 {
+		post("error", "yzmaAnswer needs a request")
+		return nil
+	}
+	request := args[0].String()
+
+	go func() {
+		if decider == nil {
+			post("error", "load a model first")
+			return
+		}
+		req, err := decide.ParseRequest([]byte(request))
+		if err != nil {
+			post("error", err.Error())
+			return
+		}
+
+		start := time.Now()
+		resp, err := decider.Answer(req)
+		if err != nil {
+			post("error", err.Error())
+			return
+		}
+		out, err := json.Marshal(map[string]any{"response": resp, "ms": time.Since(start).Milliseconds()})
+		if err != nil {
+			post("error", err.Error())
+			return
+		}
+		post("answer", string(out))
 	}()
 
 	return nil
