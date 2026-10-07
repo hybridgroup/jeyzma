@@ -155,8 +155,10 @@
       input:focus, select:focus, textarea:focus { border-color: var(--orange); outline: 2px solid color-mix(in srgb, var(--orange) 25%, transparent); }
       textarea { display: block; resize: vertical; width: 100%; }
       #state { font-size: 15px; }
-      #questions { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; line-height: 1.6; }
-      #custom[hidden] { display: none; }
+      #questions, #request { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; line-height: 1.6; }
+      #custom[hidden], #config-field[hidden], #plain[hidden], #typed[hidden], #response[hidden] { display: none; }
+      .check { align-items: center; color: var(--muted); display: flex; font-size: 14px; gap: 8px; margin-top: 10px; }
+      .check input { flex: 0 0 auto; }
 
       button {
         background: var(--rust);
@@ -203,6 +205,15 @@
       .bar.top .name { color: var(--rust); font-weight: 700; }
       .bar.top .fill { background: var(--orange); }
       .bar .value { color: var(--muted); flex: 0 0 3.5rem; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; text-align: right; }
+      .question .meta { color: var(--faint); font-size: 13px; margin-top: 6px; }
+      #response {
+        background: var(--field);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        font-size: 13px;
+        overflow-x: auto;
+        padding: 12px;
+      }
 
       @media (prefers-color-scheme: dark) {
         .bar.top .name { color: var(--orange); }
@@ -277,7 +288,7 @@
           <label for="model">Model</label>
           <input id="model" type="text" placeholder="GGUF URL" />
         </div>
-        <div class="field">
+        <div class="field" id="config-field">
           <label for="config">Config</label>
           <input id="config" type="text" placeholder="readout config URL" />
         </div>
@@ -287,6 +298,7 @@
             <option value="jev">Jev-Style</option>
             <option value="jevk5">JevK5</option>
             <option value="decider">decider</option>
+            <option value="gguf">GGUF, no config needed</option>
           </select>
         </div>
       </div>
@@ -299,15 +311,36 @@
         </select>
       </div>
 
+      <label class="check">
+        <input id="orders" type="checkbox" />
+        Both orders. Read each choice question again with the options reversed, and average the two.
+      </label>
+
       <progress id="bar" max="100" value="0" hidden></progress>
 
-      <h2>State</h2>
+      <div class="field">
+        <label for="input">Input</label>
+        <select id="input">
+          <option value="questions">a state and a list of questions</option>
+          <option value="request">a /v1/systemone request, as llama-server takes</option>
+        </select>
+      </div>
 
-      <textarea id="state" rows="3" aria-label="State"></textarea>
+      <div id="plain">
+        <h2>State</h2>
 
-      <h2>Questions</h2>
+        <textarea id="state" rows="3" aria-label="State"></textarea>
 
-      <textarea id="questions" rows="8" aria-label="Questions as a JSON list" spellcheck="false"></textarea>
+        <h2>Questions</h2>
+
+        <textarea id="questions" rows="8" aria-label="Questions as a JSON list" spellcheck="false"></textarea>
+      </div>
+
+      <div id="typed" hidden>
+        <h2>Request</h2>
+
+        <textarea id="request" rows="14" aria-label="A /v1/systemone request" spellcheck="false"></textarea>
+      </div>
 
       <div class="field">
         <select id="example" aria-label="Example"></select>
@@ -319,6 +352,8 @@
       <h2>Answers</h2>
 
       <div id="results"></div>
+
+      <pre id="response" hidden></pre>
     </main>
 
     <footer>
@@ -332,9 +367,21 @@
     <script>
       const $ = (id) => document.getElementById(id);
 
-      // System One models. No GGUF holds the readout values, so each one
-      // needs its config file.
+      // System One models. The gguf ones hold their own readout, and the
+      // others need a config file.
       const MODELS = [
+        {
+          name: "Julia-1 (170 MB, no config)",
+          url: "https://huggingface.co/ggml-org/Julia-1-GGUF/resolve/main/Julia-1-Q8_0.gguf",
+          config: "",
+          readout: "gguf",
+        },
+        {
+          name: "Laya (450 MB, no config)",
+          url: "https://huggingface.co/ggml-org/Laya-GGUF/resolve/main/Laya-Q8_0.gguf",
+          config: "",
+          readout: "gguf",
+        },
         {
           name: "Jev-Style 0.8B Decision v3 (530 MB)",
           url: "https://huggingface.co/chaoliangUNSW/Jev-Style-0.8B-Decision-v3-GGUF/resolve/main/Jev-Style-0.8B-Decision-v3-Q4_K_M.gguf",
@@ -409,20 +456,57 @@
           $("config").value = entry.config;
           $("readout").value = entry.readout;
         }
+        pickReadout();
+      }
+      function pickReadout() {
+        $("config-field").hidden = $("readout").value === "gguf";
       }
       $("preset").onchange = pickModel;
+      $("readout").onchange = pickReadout;
       pickModel();
 
       for (const [i, entry] of EXAMPLES.entries()) {
         $("example").add(new Option(entry.name, String(i)));
       }
 
+      // toRequest turns the state and the questions into a TypeSafe /v1/systemone request.
+      function toRequest(state, questions) {
+        let st = state;
+        try {
+          st = JSON.parse(state);
+        } catch {}
+        const out = {};
+        questions.forEach((q, i) => {
+          const type = q.type || (q.options ? "choice" : "noul");
+          let criteria = q.options;
+          if (type === "choice" && Array.isArray(criteria)) {
+            criteria = Object.fromEntries(criteria.map((name) => [name, ""]));
+          }
+          out["q" + (i + 1)] = criteria === undefined ? { type, instructions: q.question } : { type, instructions: q.question, criteria };
+        });
+        return { state: st, questions: out };
+      }
+
       function pickExample() {
         const entry = EXAMPLES[$("example").value];
         $("state").value = entry.state;
         $("questions").value = "[\n" + entry.questions.map((q) => "  " + JSON.stringify(q)).join(",\n") + "\n]";
-        $("results").replaceChildren();
+        $("request").value = JSON.stringify(toRequest(entry.state, entry.questions), null, 2);
+        clear();
       }
+
+      function clear() {
+        $("results").replaceChildren();
+        $("response").hidden = true;
+      }
+
+      function pickInput() {
+        const typed = $("input").value === "request";
+        $("plain").hidden = typed;
+        $("typed").hidden = !typed;
+        clear();
+      }
+      $("input").onchange = pickInput;
       $("example").onchange = pickExample;
       pickExample();
 
@@ -444,7 +528,7 @@
 
       // show draws one bar per option for each question.
       function show(list) {
-        $("results").replaceChildren();
+        clear();
         list.forEach((r, i) => {
           const box = document.createElement("div");
           box.className = "question";
@@ -469,8 +553,38 @@
             row.querySelector(".value").textContent = p.toFixed(3);
             box.appendChild(row);
           });
+
+          const notes = [];
+          if (r.confidence !== undefined) notes.push("confidence " + r.confidence.toFixed(3));
+          if (levels && r.expected !== undefined) notes.push("expected level " + r.expected.toFixed(2));
+          if (notes.length) {
+            const meta = document.createElement("div");
+            meta.className = "meta";
+            meta.textContent = notes.join(", ");
+            box.appendChild(meta);
+          }
+
           $("results").appendChild(box);
         });
+      }
+
+      // showResponse draws the bars of a /v1/systemone response and prints its JSON.
+      function showResponse(response, request) {
+        const list = [];
+        asked = [];
+        for (const [id, a] of Object.entries(response.answers)) {
+          const q = request.questions[id] || {};
+          let probs = a.probabilities || {};
+          if (a.type === "noul") probs = { false: 1 - a.noul, true: a.noul };
+          const options = Object.keys(probs);
+          const values = options.map((o) => probs[o]);
+          const top = options[values.indexOf(Math.max(...values))];
+          list.push({ options, probabilities: values, answer: a.choice || top, confidence: a.confidence, expected: a.score });
+          asked.push({ question: q.instructions, type: a.type, options: a.type === "score" ? Object.values(a.legend) : null });
+        }
+        show(list);
+        $("response").textContent = JSON.stringify(response, null, 2);
+        $("response").hidden = false;
       }
 
       worker.onmessage = (event) => {
@@ -494,6 +608,13 @@
             busy(false);
             status("model loaded, " + text);
             break;
+          case "answer": {
+            const out = JSON.parse(text);
+            showResponse(out.response, JSON.parse($("request").value));
+            busy(false);
+            status("answered in " + out.ms + " ms");
+            break;
+          }
           case "result": {
             const out = JSON.parse(text);
             show(Array.isArray(out.result) ? out.result : [out.result]);
@@ -524,15 +645,29 @@
           config: $("config").value.trim(),
           readout: $("readout").value,
           manyMode: $("mode").value,
+          orders: $("orders").checked ? "both" : "",
         });
       };
 
-      // The mode applies when the model loads, so a change loads it again.
-      $("mode").onchange = () => {
+      // The mode and the orders apply when the model loads, so a change loads it again.
+      $("mode").onchange = $("orders").onchange = () => {
         if (ready) $("load").onclick();
       };
 
       $("decide").onclick = () => {
+        if ($("input").value === "request") {
+          try {
+            JSON.parse($("request").value);
+          } catch (err) {
+            status("the request is not JSON: " + err.message, true);
+            return;
+          }
+          busy(true);
+          status("deciding");
+          worker.postMessage({ kind: "answer", request: $("request").value });
+          return;
+        }
+
         try {
           asked = JSON.parse($("questions").value);
         } catch (err) {
