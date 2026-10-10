@@ -1,6 +1,6 @@
 # Jeyzma
 
-Typed decisions with a System One model, 100% local in your browser using WebAssembly written in Go.
+Go make a decision! Run System One models, 100% local in your browser using WebAssembly written in Go.
 
 [![Jeyzma in a browser](./images/jeyzma-in-browser.png)](https://jeyzma.com)
 
