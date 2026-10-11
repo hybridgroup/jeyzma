@@ -4,12 +4,12 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Jeyzma - Play Pac-Man with a model</title>
-    <link rel="icon" href="yzma-icon.svg" type="image/svg+xml" />
+    <link rel="icon" href="../../yzma-icon.svg" type="image/svg+xml" />
     <meta name="description" content="Play Pac-Man while a System One model picks its own move at each junction, 100% local in your browser." />
 
-    <script src="coi-serviceworker.js"></script>
+    <script src="../../coi-serviceworker.js"></script>
 
-    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="../../style.css" />
     <style>
       #game { margin: 16px auto 0; max-width: 100%; position: relative; width: 342px; }
       #game canvas { display: block; }
@@ -41,9 +41,9 @@
   <body>
     <header>
       <div class="inner">
-        <a class="brand" href="./"><img src="yzma-icon.svg" alt="" />Jeyzma</a>
+        <a class="brand" href="../../"><img src="../../yzma-icon.svg" alt="" />Jeyzma</a>
         <nav>
-          <a href="./">Decide</a>
+          <a href="../../">Decide</a>
           <a target="_blank" href="https://yzma.ai">yzma</a>
           <a target="_blank" href="https://github.com/hybridgroup/jeyzma">GitHub</a>
         </nav>
@@ -124,8 +124,8 @@
       </div>
     </footer>
 
-    <script src="models.js"></script>
-    <script src="pacman/pacman.js"></script>
+    <script src="../../models.js"></script>
+    <script src="pacman.js"></script>
     <script>
       const $ = (id) => document.getElementById(id);
 
@@ -138,7 +138,7 @@
       for (const key of ["mode", "gpu"]) {
         if (params.get(key)) query.set(key, params.get(key));
       }
-      const worker = new Worker("./worker.js" + (query.size ? "?" + query : ""));
+      const worker = new Worker("../../worker.js" + (query.size ? "?" + query : ""));
 
       let ready = false;
       let downloading = false;

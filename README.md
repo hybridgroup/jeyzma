@@ -113,16 +113,16 @@ level, which is the mean of the levels weighted by their probabilities.
 
 ## Play
 
-`play.html` is Pac-Man with a model playing along. You play, and at each
+`/plays/pacman` is Pac-Man with a model playing along. You play, and at each
 junction the model gets the same board as a choice question and picks a
 direction. The page shows its probabilities next to your move and counts how
 often you agree. **Wait for the model** stops the game at each junction until
 the model answers, so every turn is compared.
 
 The game is [HTML5 Pac-Man](https://github.com/daleharvey/pacman) by Dale
-Harvey, under the WTFPL. The copy in `web/pacman` adds hooks so the page can
-read the board and hold the game at a junction. The audio and the font are left
-out.
+Harvey, under the WTFPL. The copy in `web/plays/pacman` adds hooks so the page
+can read the board and hold the game at a junction. The audio and the font are
+left out.
 
 ## The /v1/systemone request
 
