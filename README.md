@@ -64,7 +64,7 @@ Any URL works if the host sends CORS headers. Hugging Face does.
 
 `make build` downloads about 13 MB of llama.cpp into `build/`, compiles the Go
 program, and copies the page. The only binary files in the repository are the
-social card and the screenshot.
+social card and the two screenshots.
 
 The download comes from
 [llama-cpp-builder](https://github.com/hybridgroup/llama-cpp-builder). It uses
@@ -118,6 +118,8 @@ junction the model gets the same board as a choice question and picks a
 direction. The page shows its probabilities next to your move and counts how
 often you agree. **Wait for the model** stops the game at each junction until
 the model answers, so every turn is compared.
+
+[![Pac-Man with a model playing along](./images/jeyzma-plays-pacman.png)](https://jeyzma.com/plays/pacman/)
 
 The game is [HTML5 Pac-Man](https://github.com/daleharvey/pacman) by Dale
 Harvey, under the WTFPL. The copy in `web/plays/pacman` adds hooks so the page
