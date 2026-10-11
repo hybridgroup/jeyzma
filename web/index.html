@@ -33,200 +33,7 @@
       }
     </script>
 
-    <style>
-      /* The yzma colors from yzma.ai. */
-      :root {
-        --orange: #f48122;
-        --orange-dark: #e4781f;
-        --rust: #a25618;
-        --brown: #69513d;
-        --bistre: #2f251d;
-        --cream: #fdf6ef;
-
-        --bg: #fff;
-        --text: #2f251d;
-        --muted: #69513d;
-        --faint: #9a8573;
-        --line: #eee4da;
-        --panel: #fdf6ef;
-        --track: #f1e6da;
-        --fill: #f3c9a3;
-        --link: #a25618;
-        --field: #fff;
-      }
-      @media (prefers-color-scheme: dark) {
-        :root {
-          --bg: #1b1511;
-          --text: #f3ebe3;
-          --muted: #c9b8a8;
-          --faint: #8f7b6a;
-          --line: #3a2f27;
-          --panel: #2f251d;
-          --track: #3a2f27;
-          --fill: #7a4a24;
-          --link: #f48122;
-          --field: #241c17;
-        }
-      }
-
-      * { box-sizing: border-box; }
-      body {
-        background: var(--bg);
-        color: var(--text);
-        font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", "Noto Sans", "Liberation Sans", Arial, sans-serif;
-        font-size: 16px;
-        line-height: 1.7;
-        margin: 0;
-      }
-      a { color: var(--link); text-underline-offset: 3px; }
-      a:hover { color: var(--orange-dark); }
-      code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.875em; }
-
-      header {
-        background: color-mix(in srgb, var(--bg) 85%, transparent);
-        backdrop-filter: blur(8px);
-        border-bottom: 1px solid var(--line);
-        position: sticky;
-        top: 0;
-        z-index: 10;
-      }
-      header .inner { align-items: center; display: flex; gap: 12px; height: 64px; }
-      header .brand { align-items: center; color: var(--text); display: flex; font-size: 18px; font-weight: 600; gap: 10px; text-decoration: none; }
-      header .brand img { height: 28px; }
-      header nav { display: flex; gap: 18px; margin-left: auto; font-size: 14px; }
-      header nav a { color: var(--muted); text-decoration: none; }
-      header nav a:hover { color: var(--text); }
-
-      .inner { margin: 0 auto; max-width: 48rem; padding: 0 20px; }
-      main { padding: 40px 0 64px; }
-
-      .eyebrow { color: var(--rust); font-size: 14px; font-weight: 600; margin: 0; }
-      h1 { font-size: 36px; font-weight: 500; letter-spacing: -0.02em; line-height: 1.2; margin: 4px 0 8px; }
-      .lede { color: var(--muted); font-size: 18px; margin: 0 0 24px; }
-      h2 { font-size: 22px; font-weight: 600; letter-spacing: -0.01em; margin: 40px 0 12px; }
-      p { margin: 0 0 16px; }
-
-      .embed #intro { display: none; }
-
-      .note {
-        background: var(--panel);
-        border: 1px solid color-mix(in srgb, var(--orange) 35%, transparent);
-        border-radius: 16px;
-        display: flex;
-        gap: 12px;
-        margin: 16px 0;
-        padding: 16px 20px;
-      }
-      .note::before { color: var(--orange); content: "\24D8"; font-size: 18px; line-height: 1.5; }
-      .note p { margin: 0; }
-
-      #backend {
-        background: var(--panel);
-        border: 1px solid var(--line);
-        border-radius: 999px;
-        color: var(--muted);
-        display: inline-block;
-        font-size: 13px;
-        padding: 2px 12px;
-      }
-
-      .types { margin: 16px 0; }
-      .types summary { color: var(--rust); cursor: pointer; font-size: 15px; font-weight: 600; }
-      .types summary:hover { color: var(--orange-dark); }
-      .types .table { margin-bottom: 0; }
-      .table { border: 1px solid var(--line); border-radius: 12px; margin: 16px 0; overflow-x: auto; }
-      table { border-collapse: collapse; font-size: 14px; min-width: 100%; }
-      th, td { border-bottom: 1px solid var(--line); padding: 10px 14px; text-align: left; vertical-align: top; }
-      th { font-weight: 600; }
-      tr:last-child td { border-bottom: 0; }
-
-      .field { display: flex; gap: 8px; align-items: center; margin-top: 10px; }
-      .field label { color: var(--muted); flex: 0 0 5.5rem; font-size: 14px; }
-      input, select, textarea, button { font: inherit; }
-      input, select, textarea {
-        background: var(--field);
-        border: 1px solid var(--line);
-        border-radius: 10px;
-        color: var(--text);
-        flex: 1;
-        min-width: 0;
-        padding: 8px 12px;
-      }
-      input:focus, select:focus, textarea:focus { border-color: var(--orange); outline: 2px solid color-mix(in srgb, var(--orange) 25%, transparent); }
-      textarea { display: block; resize: vertical; width: 100%; }
-      #state { font-size: 15px; }
-      #questions, #request { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; line-height: 1.6; }
-      #custom[hidden], #config-field[hidden], #plain[hidden], #typed[hidden], #response[hidden] { display: none; }
-      .check { align-items: center; color: var(--muted); display: flex; font-size: 14px; gap: 8px; margin-top: 10px; }
-      .check input { flex: 0 0 auto; }
-
-      button {
-        background: var(--rust);
-        border: 0;
-        border-radius: 10px;
-        color: #fff;
-        cursor: pointer;
-        font-size: 15px;
-        font-weight: 600;
-        padding: 8px 20px;
-      }
-      button:hover { background: var(--orange-dark); }
-      button:disabled, button:disabled:hover { background: var(--line); color: var(--faint); cursor: default; }
-
-      #bar {
-        appearance: none;
-        border: 0;
-        display: block;
-        height: 8px;
-        margin-top: 12px;
-        width: 100%;
-      }
-      /* The id selector overrides the browser [hidden] rule, so repeat it. */
-      #bar[hidden] { display: none; }
-      #bar::-webkit-progress-bar { background: var(--track); border-radius: 4px; }
-      #bar::-webkit-progress-value { background: var(--orange); border-radius: 4px; }
-      #bar::-moz-progress-bar { background: var(--orange); border-radius: 4px; }
-
-      #status { color: var(--faint); font-size: 13px; margin: 12px 0 0; min-height: 1.4em; }
-      #status.bad { color: #d33; }
-
-      #results:empty::after { color: var(--faint); content: "Load a model, then click Decide."; }
-      .question {
-        border: 1px solid var(--line);
-        border-radius: 16px;
-        margin-bottom: 12px;
-        padding: 14px 18px;
-      }
-      .question .text { font-weight: 600; margin-bottom: 6px; }
-      .bar { display: flex; align-items: center; gap: 10px; margin: 4px 0; font-size: 14px; }
-      .bar .name { flex: 0 0 9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-      .bar .track { flex: 1; height: 10px; background: var(--track); border-radius: 5px; overflow: hidden; }
-      .bar .fill { display: block; height: 100%; background: var(--fill); border-radius: 5px; }
-      .bar.top .name { color: var(--rust); font-weight: 700; }
-      .bar.top .fill { background: var(--orange); }
-      .bar .value { color: var(--muted); flex: 0 0 3.5rem; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; text-align: right; }
-      .question .meta { color: var(--faint); font-size: 13px; margin-top: 6px; }
-      #response {
-        background: var(--field);
-        border: 1px solid var(--line);
-        border-radius: 10px;
-        font-size: 13px;
-        overflow-x: auto;
-        padding: 12px;
-      }
-
-      @media (prefers-color-scheme: dark) {
-        .bar.top .name { color: var(--orange); }
-      }
-
-      footer { border-top: 1px solid var(--line); color: var(--faint); font-size: 13px; padding: 20px 0 40px; }
-
-      @media (max-width: 600px) {
-        h1 { font-size: 30px; }
-        .bar .name { flex-basis: 6rem; }
-        .field label { flex-basis: 4.5rem; }
-      }
-    </style>
+    <link rel="stylesheet" href="style.css" />
   </head>
 
   <body>
@@ -234,6 +41,7 @@
       <div class="inner">
         <a class="brand" href="./"><img src="yzma-icon.svg" alt="" />Jeyzma</a>
         <nav>
+          <a href="plays/pacman/">Play</a>
           <a target="_blank" href="https://yzma.ai">yzma</a>
           <a target="_blank" href="https://github.com/hybridgroup/jeyzma">GitHub</a>
         </nav>
@@ -364,43 +172,10 @@
       </div>
     </footer>
 
+    <script src="models.js"></script>
     <script>
       const $ = (id) => document.getElementById(id);
 
-      // System One models. The gguf ones hold their own readout, and the
-      // others need a config file.
-      const MODELS = [
-        {
-          name: "Julia-1 (170 MB, no config)",
-          url: "https://huggingface.co/ggml-org/Julia-1-GGUF/resolve/main/Julia-1-Q8_0.gguf",
-          config: "",
-          readout: "gguf",
-        },
-        {
-          name: "Laya (450 MB, no config)",
-          url: "https://huggingface.co/ggml-org/Laya-GGUF/resolve/main/Laya-Q8_0.gguf",
-          config: "",
-          readout: "gguf",
-        },
-        {
-          name: "Jev-Style 0.8B Decision v3 (530 MB)",
-          url: "https://huggingface.co/chaoliangUNSW/Jev-Style-0.8B-Decision-v3-GGUF/resolve/main/Jev-Style-0.8B-Decision-v3-Q4_K_M.gguf",
-          config: "https://huggingface.co/chaoliangUNSW/Jev-Style-0.8B-Decision-v3-GGUF/resolve/main/readout_config.json",
-          readout: "jev",
-        },
-        {
-          name: "JevK5 2B v0.2 (2.0 GB)",
-          url: "https://huggingface.co/alibiserikbay/JevK5-GGUF/resolve/main/jevk5-2b-v0.2-Q8_0.gguf",
-          config: "https://huggingface.co/alibiserikbay/JevK5-2B/resolve/main/jevk5_config.json",
-          readout: "jevk5",
-        },
-        {
-          name: "decider 0.8B (530 MB)",
-          url: "https://huggingface.co/mradermacher/decider-0.8b-GGUF/resolve/main/decider-0.8b.Q4_K_M.gguf",
-          config: "https://huggingface.co/Mapika/decider-0.8b/resolve/main/decider_config.json",
-          readout: "decider",
-        },
-      ];
 
       // A question with options is a choice, one without is yes or no, and a
       // score picks one of the levels in order.

@@ -1,0 +1,448 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Jeyzma - Play Pac-Man with a model</title>
+    <link rel="icon" href="../../yzma-icon.svg" type="image/svg+xml" />
+    <meta name="description" content="Play Pac-Man while a System One model picks its own move at each junction, 100% local in your browser." />
+
+    <script src="../../coi-serviceworker.js"></script>
+
+    <link rel="stylesheet" href="../../style.css" />
+    <style>
+      #game { margin: 16px auto 0; max-width: 100%; position: relative; width: 342px; }
+      #game canvas { display: block; }
+      #overlay { left: 0; pointer-events: none; position: absolute; top: 0; }
+
+      .pad { display: grid; gap: 8px; grid-template-columns: repeat(3, 56px); justify-content: center; margin: 16px 0; }
+      .pad button { padding: 10px 0; }
+      .pad .up { grid-column: 2; }
+      .pad .left { grid-column: 1; grid-row: 2; }
+      .pad .down { grid-column: 2; grid-row: 2; }
+      .pad .right { grid-column: 3; grid-row: 2; }
+      .keys { display: flex; gap: 8px; justify-content: center; }
+      .keys button { background: var(--brown); }
+      @media (hover: hover) and (pointer: fine) {
+        .pad { display: none; }
+      }
+
+      .tally { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+      .tally span { background: var(--panel); border: 1px solid var(--line); border-radius: 999px; font-size: 14px; padding: 2px 12px; }
+      .tally b { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+      #turn:empty::after { color: var(--faint); content: "Load a model, press N, and play. The model answers at each junction."; }
+      .bar.you .name::after { color: var(--muted); content: " (you)"; font-weight: 400; }
+      .same { color: #2a8a3a; }
+      .differ { color: #d33; }
+      #history td:last-child { text-align: center; }
+    </style>
+  </head>
+
+  <body>
+    <header>
+      <div class="inner">
+        <a class="brand" href="../../"><img src="../../yzma-icon.svg" alt="" />Jeyzma</a>
+        <nav>
+          <a href="../../">Decide</a>
+          <a target="_blank" href="https://yzma.ai">yzma</a>
+          <a target="_blank" href="https://github.com/hybridgroup/jeyzma">GitHub</a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="inner">
+      <p class="eyebrow">System One plays along</p>
+      <h1>Pac-Man</h1>
+      <p class="lede">You play. At each junction a model gets the same board and picks its own move. See where you agree.</p>
+
+      <p><span id="backend">looking for a backend</span></p>
+
+      <h2>Model</h2>
+
+      <div class="field">
+        <select id="preset" aria-label="Model choice"></select>
+        <button id="load">Load</button>
+      </div>
+
+      <label class="check">
+        <input id="wait" type="checkbox" />
+        Wait for the model. The game stops at each junction until the model answers.
+      </label>
+
+      <progress id="bar" max="100" value="0" hidden></progress>
+      <div id="status">starting</div>
+
+      <h2>Game</h2>
+
+      <p>Arrow keys move Pac-Man. N starts a new game and P pauses.</p>
+
+      <div id="game"></div>
+
+      <div class="pad">
+        <button class="up" data-key="ARROW_UP" aria-label="Up">&uarr;</button>
+        <button class="left" data-key="ARROW_LEFT" aria-label="Left">&larr;</button>
+        <button class="down" data-key="ARROW_DOWN" aria-label="Down">&darr;</button>
+        <button class="right" data-key="ARROW_RIGHT" aria-label="Right">&rarr;</button>
+      </div>
+      <div class="keys">
+        <button data-key="N">New game</button>
+        <button data-key="P">Pause</button>
+      </div>
+
+      <h2>You and the model</h2>
+
+      <div class="tally">
+        <span>agree <b id="agree">0</b></span>
+        <span>differ <b id="differ">0</b></span>
+        <span>agreement <b id="rate">-</b></span>
+        <span>skipped <b id="skipped">0</b></span>
+      </div>
+
+      <div id="turn"></div>
+
+      <div class="table">
+        <table>
+          <thead>
+            <tr><th>Turn</th><th>You</th><th>Model</th><th>Confidence</th><th>Same</th></tr>
+          </thead>
+          <tbody id="history"></tbody>
+        </table>
+      </div>
+
+      <p>
+        A turn is skipped when Pac-Man reaches a junction while the model is still on the last one.
+        Check the box above to compare every turn.
+      </p>
+    </main>
+
+    <footer>
+      <div class="inner">
+        Pac-Man by <a target="_blank" href="https://github.com/daleharvey/pacman">Dale Harvey</a>, under the WTFPL.
+        Powered by <a target="_blank" href="https://github.com/hybridgroup/yzma">yzma</a> and
+        <a target="_blank" href="https://github.com/ggml-org/llama.cpp">llama.cpp</a>.
+        <a target="_blank" href="https://github.com/hybridgroup/jeyzma">Source code</a>.
+      </div>
+    </footer>
+
+    <script src="../../models.js"></script>
+    <script src="pacman.js"></script>
+    <script>
+      const $ = (id) => document.getElementById(id);
+
+      const DIRS = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
+      const OPPOSITE = { up: "down", down: "up", left: "right", right: "left" };
+      const FLOOR = [Pacman.BISCUIT, Pacman.EMPTY, Pacman.PILL];
+
+      const params = new URLSearchParams(location.search);
+      const query = new URLSearchParams();
+      for (const key of ["mode", "gpu"]) {
+        if (params.get(key)) query.set(key, params.get(key));
+      }
+      const worker = new Worker("../../worker.js" + (query.size ? "?" + query : ""));
+
+      let ready = false;
+      let downloading = false;
+      let thinking = null;
+      let held = false;
+      let turns = [];
+      let counts = { agree: 0, differ: 0, skipped: 0 };
+
+      for (const [i, entry] of MODELS.entries()) {
+        $("preset").add(new Option(entry.name, String(i)));
+      }
+
+      function status(text, bad) {
+        $("status").textContent = text;
+        $("status").className = bad ? "bad" : "";
+      }
+
+      function bar(percent) {
+        $("bar").hidden = percent < 0;
+        $("bar").value = percent < 0 ? 0 : percent;
+      }
+
+      // step moves one square, and the tunnel row wraps around.
+      function step(map, x, y, dir) {
+        const w = map[0].length;
+        x = (x + DIRS[dir][0] + w) % w;
+        y += DIRS[dir][1];
+        return [x, y];
+      }
+
+      function isFloor(map, x, y) {
+        return y >= 0 && y < map.length && FLOOR.includes(map[y][x]);
+      }
+
+      function openDirs(map, x, y) {
+        return Object.keys(DIRS).filter((d) => isFloor(map, ...step(map, x, y, d)));
+      }
+
+      // paths finds the distance to each square and the first move toward it.
+      function paths(map, x, y) {
+        const seen = new Map([[x + "," + y, { dist: 0, first: null }]]);
+        const queue = [[x, y]];
+        while (queue.length) {
+          const [cx, cy] = queue.shift();
+          const here = seen.get(cx + "," + cy);
+          for (const d of Object.keys(DIRS)) {
+            const [nx, ny] = step(map, cx, cy, d);
+            const key = nx + "," + ny;
+            if (seen.has(key) || !isFloor(map, nx, ny)) continue;
+            seen.set(key, { dist: here.dist + 1, first: here.first || d });
+            queue.push([nx, ny]);
+          }
+        }
+        return seen;
+      }
+
+      function nearest(map, found, type) {
+        let best = null;
+        for (const [key, p] of found) {
+          const [x, y] = key.split(",").map(Number);
+          if (map[y][x] === type && p.dist > 0 && (!best || p.dist < best.dist)) best = p;
+        }
+        return best ? `${best.dist} squares away, go ${best.first}` : "none left";
+      }
+
+      // look describes what is down one corridor, up to 6 squares.
+      function look(snap, dir) {
+        const map = snap.map;
+        let [x, y] = [snap.pacman.x, snap.pacman.y];
+        let dots = 0;
+        const seen = [];
+        for (let i = 1; i <= 6; i++) {
+          [x, y] = step(map, x, y, dir);
+          if (!isFloor(map, x, y)) break;
+          for (const g of snap.ghosts) {
+            if (g.eaten || g.cell.x !== x || g.cell.y !== y) continue;
+            seen.push(g.scared ? `scared ${g.name} ghost ${i} away` : `${g.name} ghost ${i} away, danger`);
+          }
+          if (map[y][x] === Pacman.PILL) seen.push(`power pill ${i} away`);
+          if (map[y][x] === Pacman.BISCUIT) dots++;
+        }
+        seen.push(dots ? `${dots} dots` : "no dots");
+        return seen.join(", ");
+      }
+
+      // describe turns a snapshot into the state and the question for the model.
+      function describe(snap, options) {
+        const found = paths(snap.map, snap.pacman.x, snap.pacman.y);
+        const ghosts = {};
+        for (const g of snap.ghosts) {
+          const p = found.get(g.cell.x + "," + g.cell.y);
+          if (g.eaten) ghosts[g.name] = "eaten, harmless";
+          else if (!p) ghosts[g.name] = "in the ghost house";
+          else ghosts[g.name] = `${g.scared ? "scared, " : ""}${p.dist} squares away, ${p.first} leads to it`;
+        }
+        const state = {
+          pacman: snap.direction === "none" ? "stopped" : "moving " + snap.direction,
+          ghosts,
+          "ghosts are scared": snap.ghosts.some((g) => g.scared) ? "yes, eat them" : "no, avoid them",
+          "nearest dot": nearest(snap.map, found, Pacman.BISCUIT),
+          "nearest power pill": nearest(snap.map, found, Pacman.PILL),
+          lives: snap.lives,
+        };
+        const question = {
+          question: "Which way should Pac-Man go to eat dots and stay away from dangerous ghosts?",
+          options: Object.fromEntries(options.map((d) => [d, look(snap, d)])),
+        };
+        return { state, question };
+      }
+
+      let current = null;
+
+      const hooks = {
+        atSquare(snap) {
+          const options = openDirs(snap.map, snap.pacman.x, snap.pacman.y);
+          if (options.length < 3) return;
+
+          current = null;
+          if (!ready) return;
+          if (thinking) {
+            counts.skipped++;
+            tally();
+            return;
+          }
+
+          const turn = { n: turns.length + 1, square: snap.pacman, options, you: null, result: null };
+          turns.push(turn);
+          current = turn;
+          thinking = turn;
+
+          const { state, question } = describe(snap, options);
+          turn.question = question;
+          worker.postMessage({ kind: "decide", state: JSON.stringify(state), question: JSON.stringify(question) });
+          if ($("wait").checked) {
+            PACMAN.hold();
+            held = true;
+          }
+        },
+        leftSquare(square, dir) {
+          if (!current || current.square.x !== square.x || current.square.y !== square.y) return;
+          current.you = dir;
+          reveal(current);
+          current = null;
+        },
+      };
+
+      // reveal shows a turn once both you and the model have chosen.
+      function reveal(turn) {
+        if (!turn.you || !turn.result || turn.shown) return;
+        turn.shown = true;
+        const r = turn.result;
+        const same = r.answer === turn.you;
+        counts[same ? "agree" : "differ"]++;
+        tally();
+        showTurn(turn);
+        arrow(turn, same);
+
+        const row = document.createElement("tr");
+        for (const text of [turn.n, turn.you, r.answer, r.confidence !== undefined ? r.confidence.toFixed(3) : "-", same ? "✓" : "✗"]) {
+          const td = document.createElement("td");
+          td.textContent = text;
+          row.appendChild(td);
+        }
+        row.lastChild.className = same ? "same" : "differ";
+        $("history").prepend(row);
+        while ($("history").children.length > 10) $("history").lastChild.remove();
+      }
+
+      function tally() {
+        $("agree").textContent = counts.agree;
+        $("differ").textContent = counts.differ;
+        $("skipped").textContent = counts.skipped;
+        const total = counts.agree + counts.differ;
+        $("rate").textContent = total ? Math.round((counts.agree * 100) / total) + "%" : "-";
+      }
+
+      // showTurn draws the bars the same way as the main page.
+      function showTurn(turn) {
+        const r = turn.result;
+        const box = document.createElement("div");
+        box.className = "question";
+
+        const text = document.createElement("div");
+        text.className = "text";
+        text.textContent = `Turn ${turn.n}. You went ${turn.you}, the model picked ${r.answer}.`;
+        box.appendChild(text);
+
+        r.options.forEach((option, k) => {
+          const p = r.probabilities[k];
+          const row = document.createElement("div");
+          row.className = "bar" + (option === r.answer ? " top" : "") + (option === turn.you ? " you" : "");
+          row.innerHTML = '<span class="name"></span><span class="track"><span class="fill"></span></span><span class="value"></span>';
+          row.querySelector(".name").textContent = option;
+          row.querySelector(".name").title = turn.question.options[option] || option;
+          row.querySelector(".fill").style.width = (p * 100).toFixed(1) + "%";
+          row.querySelector(".value").textContent = p.toFixed(3);
+          box.appendChild(row);
+        });
+
+        const meta = document.createElement("div");
+        meta.className = "meta";
+        meta.textContent = Object.entries(turn.question.options).map(([d, t]) => `${d}: ${t}`).join(". ") + `. Decided in ${turn.ms} ms.`;
+        box.appendChild(meta);
+
+        $("turn").replaceChildren(box);
+      }
+
+      // arrow marks the model's pick on the junction, green when you agree.
+      function arrow(turn, same) {
+        const canvas = $("overlay");
+        const ctx = canvas.getContext("2d");
+        const s = canvas.width / 19;
+        const cx = turn.square.x * s + s / 2;
+        const cy = turn.square.y * s + s / 2;
+        const [dx, dy] = DIRS[turn.result.answer];
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.strokeStyle = ctx.fillStyle = same ? "#3c3" : "#f44";
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.lineTo(cx + dx * s * 1.6, cy + dy * s * 1.6);
+        ctx.stroke();
+        ctx.beginPath();
+        const tx = cx + dx * s * 2.2;
+        const ty = cy + dy * s * 2.2;
+        ctx.moveTo(tx, ty);
+        ctx.lineTo(tx - dx * s * 0.7 + dy * s * 0.5, ty - dy * s * 0.7 + dx * s * 0.5);
+        ctx.lineTo(tx - dx * s * 0.7 - dy * s * 0.5, ty - dy * s * 0.7 - dx * s * 0.5);
+        ctx.fill();
+      }
+
+      function release() {
+        if (held) {
+          held = false;
+          PACMAN.release();
+        }
+      }
+
+      PACMAN.init($("game"), hooks);
+      const board = $("game").querySelector("canvas");
+      const overlay = document.createElement("canvas");
+      overlay.id = "overlay";
+      overlay.width = board.width;
+      overlay.height = board.height;
+      $("game").appendChild(overlay);
+
+      for (const button of document.querySelectorAll("[data-key]")) {
+        button.onclick = () => PACMAN.press(KEY[button.dataset.key]);
+      }
+
+      worker.onmessage = (event) => {
+        const { kind, text } = event.data || {};
+        switch (kind) {
+          case "ready":
+            $("backend").textContent = text;
+            status("ready, load a model");
+            break;
+          case "status":
+            status(text);
+            break;
+          case "progress":
+            bar(parseInt(text, 10));
+            status("downloading the model " + text);
+            break;
+          case "loaded":
+            ready = true;
+            downloading = false;
+            bar(-1);
+            $("load").disabled = false;
+            status("model loaded, " + text + ". Press N to play.");
+            break;
+          case "result": {
+            const out = JSON.parse(text);
+            const turn = thinking;
+            thinking = null;
+            if (turn) {
+              turn.result = out.result;
+              turn.ms = out.ms;
+              reveal(turn);
+            }
+            release();
+            break;
+          }
+          case "error":
+            downloading = false;
+            thinking = null;
+            bar(-1);
+            $("load").disabled = false;
+            release();
+            status(text, true);
+            break;
+        }
+      };
+
+      $("load").onclick = () => {
+        if (downloading) return;
+        const entry = MODELS[$("preset").value];
+        ready = false;
+        downloading = true;
+        bar(0);
+        $("load").disabled = true;
+        status("waiting for the worker");
+        worker.postMessage({ kind: "decide-load", url: entry.url, config: entry.config, readout: entry.readout });
+      };
+    </script>
+  </body>
+</html>

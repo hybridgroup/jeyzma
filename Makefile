@@ -40,7 +40,7 @@ program:
 assets:
 	mkdir -p $(BUILD_DIR)
 	cp -f $(YZMA_DIR)/wasm/yzma-loader.js $(BUILD_DIR)/
-	cp web/* $(BUILD_DIR)/
+	cp -r web/* $(BUILD_DIR)/
 
 # This server sets the same headers as the service worker, so either one is
 # enough on localhost.
