@@ -14,6 +14,12 @@ const MODELS = [
     readout: "gguf",
   },
   {
+    name: "d1 3B (1.7 GB, no config)",
+    url: "https://huggingface.co/LiquidAI/d1-3B-GGUF/resolve/main/d1-3B-Q4_K_M.gguf",
+    config: "",
+    readout: "gguf",
+  },
+  {
     name: "Jev-Style 0.8B Decision v3 (530 MB)",
     url: "https://huggingface.co/chaoliangUNSW/Jev-Style-0.8B-Decision-v3-GGUF/resolve/main/Jev-Style-0.8B-Decision-v3-Q4_K_M.gguf",
     config: "https://huggingface.co/chaoliangUNSW/Jev-Style-0.8B-Decision-v3-GGUF/resolve/main/readout_config.json",
