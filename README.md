@@ -43,12 +43,13 @@ make serve
 Open <http://localhost:8080>, click **Load**, and wait for the model to
 download. The browser caches it. Then click **Decide**.
 
-The list has five models.
+The list has six models.
 
 | Model | Size | Readout | Config |
 | --- | --- | --- | --- |
 | [Julia-1](https://huggingface.co/ggml-org/Julia-1-GGUF) | approximately 170 MB | `gguf` | none |
 | [Laya](https://huggingface.co/ggml-org/Laya-GGUF) | approximately 450 MB | `gguf` | none |
+| [d1 3B](https://huggingface.co/LiquidAI/d1-3B-GGUF) | approximately 1.7 GB | `gguf` | none |
 | [Jev-Style 0.8B Decision v3](https://huggingface.co/chaoliangUNSW/Jev-Style-0.8B-Decision-v3-GGUF) | approximately 530 MB | `jev` | `readout_config.json` |
 | [JevK5 2B v0.2](https://huggingface.co/alibiserikbay/JevK5-GGUF) | approximately 2.0 GB | `jevk5` | `jevk5_config.json` |
 | [decider 0.8B](https://huggingface.co/mradermacher/decider-0.8b-GGUF) | approximately 530 MB | `decider` | `decider_config.json` |
@@ -56,8 +57,8 @@ The list has five models.
 A `gguf` model holds its readout, prompt template, and temperatures in the
 GGUF file, as converted for the llama-server `/v1/systemone` API. It loads with
 `decide.Open` and needs no config. The others need their config file too.
-Lev, OpenJev, and Kev also load as `gguf`, but their files are larger than 2 GB,
-the most a browser can hold.
+Lev, OpenJev, Kev, Clef, and pplx-decider also load as `gguf`, but their files
+are larger than 2 GB, the most a browser can hold.
 
 Choose **Another model** to enter your own model URL, config URL, and readout.
 Any URL works if the host sends CORS headers. Hugging Face does.
@@ -68,10 +69,9 @@ social card and the two screenshots.
 
 The download comes from
 [llama-cpp-builder](https://github.com/hybridgroup/llama-cpp-builder). It uses
-v0.6.0, the release that yzma v1.29.1 installs. It has shim ABI 10, which
-`DecideMany` needs to share one state across questions, and Laya and Julia-1
-need it too. To use another build, pass its tag, or `latest` for the newest
-nightly build.
+v0.7.0, the release that yzma v1.30.0 installs. It has shim ABI 11. `DecideMany`
+needs ABI 10 or later to share one state across questions, and d1 needs v0.7.0.
+To use another build, pass its tag, or `latest` for the newest nightly build.
 
 ```
 make build LLAMA_VERSION=latest
@@ -165,6 +165,7 @@ questions as a `/v1/systemone` request and fails when the answers differ from
 ```
 make test READOUT=gguf MODEL=~/models/Julia-1-Q8_0.gguf TEST_FLAGS="--request"
 make test READOUT=gguf MODEL=~/models/Laya-Q8_0.gguf
+make test READOUT=gguf MODEL=~/models/d1-3B-Q4_K_M.gguf
 make test MODEL=~/models/Jev-Style-0.8B-Decision-v3-Q4_K_M.gguf \
   CONFIG=~/models/readout_config.json TEST_FLAGS="--expect billing,true"
 make test READOUT=jevk5 MODEL=~/models/jevk5-2b-v0.2-Q8_0.gguf \
