@@ -65,7 +65,7 @@ Any URL works if the host sends CORS headers. Hugging Face does.
 
 `make build` downloads about 13 MB of llama.cpp into `build/`, compiles the Go
 program, and copies the page. The only binary files in the repository are the
-social card and the two screenshots.
+social card and the three screenshots.
 
 The download comes from
 [llama-cpp-builder](https://github.com/hybridgroup/llama-cpp-builder). It uses
@@ -132,6 +132,8 @@ model gets where a green target ring is, relative to the drone, and advises
 which way to go up or down, forward or back, and left or right. Orange arrows
 on the sticks and at the drone show its advice. Hold the drone at the ring for
 2 seconds and a new one appears.
+
+[![Flying a drone with a model as advisor](./images/jeyzma-plays-tinyflightsim.png)](https://jeyzma.com/plays/tinyflightsim/)
 
 The sim is [tinyflightsim](https://github.com/hybridgroup/tinyflight/tree/main/tools/tinyflightsim)
 from tinyflight, under the Apache 2.0 license. `make build` clones tinyflight
