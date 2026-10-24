@@ -8,6 +8,11 @@ PORT ?= 8080
 # yzma v1.30.0 installs. d1 needs it.
 LLAMA_VERSION ?= v0.7.0
 
+# The tinyflight commit for the flight sim page.
+TINYFLIGHT_VERSION ?= dd9195e1e028287e9a3fa7f6c003729f4a808ba9
+TINYFLIGHT_DIR ?= .cache/tinyflight
+SIM_DIR = $(BUILD_DIR)/plays/tinyflightsim
+
 # Use yzma-loader.js from the module that go.mod pins, not a local copy
 # that can drift.
 YZMA_DIR = $(shell go list -m -f "{{.Dir}}" github.com/hybridgroup/yzma)
@@ -19,11 +24,11 @@ YZMA_VERSION = $(shell go list -m -f "{{.Version}}" github.com/hybridgroup/yzma)
 YZMA_BIN = $(firstword $(shell go env GOBIN) $(shell go env GOPATH)/bin)
 YZMA = $(YZMA_BIN)/yzma
 
-.PHONY: all build llama.cpp program assets serve check test clean
+.PHONY: all build llama.cpp program tinyflightsim assets serve check test clean
 
 all: build
 
-build: llama.cpp program assets
+build: llama.cpp program tinyflightsim assets
 
 # This downloads all three WebAssembly builds. yzma-loader.js picks the
 # best one at run time.
@@ -36,6 +41,17 @@ program:
 	mkdir -p $(BUILD_DIR)
 	tinygo build -target wasm -o $(BUILD_DIR)/yzma.wasm .
 	cp "$(shell tinygo env TINYGOROOT)/targets/wasm_exec.js" $(BUILD_DIR)/
+
+# This builds the tinyflight firmware and copies the sim page, which assets
+# then replaces with ours.
+tinyflightsim:
+	test -d $(TINYFLIGHT_DIR) || git clone -q https://github.com/hybridgroup/tinyflight $(TINYFLIGHT_DIR)
+	git -C $(TINYFLIGHT_DIR) fetch -q origin $(TINYFLIGHT_VERSION)
+	git -C $(TINYFLIGHT_DIR) checkout -q $(TINYFLIGHT_VERSION)
+	mkdir -p $(SIM_DIR)/api
+	cd $(TINYFLIGHT_DIR) && tinygo build -target=wasip1 -tags=tinyflightsim -no-debug -o $(abspath $(SIM_DIR))/api/firmware.wasm ./firmware/stampfly
+	cp -r $(TINYFLIGHT_DIR)/tools/tinyflightsim/web/* $(SIM_DIR)/
+	cp $(TINYFLIGHT_DIR)/LICENSE $(SIM_DIR)/LICENSE
 
 assets:
 	mkdir -p $(BUILD_DIR)
@@ -62,4 +78,4 @@ test:
 	node test/decide.js --dir $(BUILD_DIR) --model $(MODEL) $(if $(CONFIG),--config $(CONFIG)) --readout $(READOUT) --mt $(TEST_FLAGS)
 
 clean:
-	rm -rf $(BUILD_DIR)
+	rm -rf $(BUILD_DIR) .cache

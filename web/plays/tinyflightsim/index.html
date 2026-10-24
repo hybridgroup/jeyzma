@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Jeyzma - Fly a drone with a model</title>
+<link rel="icon" href="../../yzma-icon.svg" type="image/svg+xml">
+<meta name="description" content="Fly a simulated StampFly drone while a System One model advises you, 100% local in your browser.">
+<script src="../../coi-serviceworker.js"></script>
+<link rel="stylesheet" href="style.css">
+<script type="importmap">
+{"imports": {"three": "./vendor/three/three.module.min.js", "three/addons/": "./vendor/three/"}}
+</script>
+<style>
+  .brand { align-items: center; color: var(--text); display: flex; gap: 8px; font-weight: 600; text-decoration: none; }
+  .brand img { height: 22px; }
+  #advisor-toggle { border-color: #f48122; }
+
+  #advisor {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 5;
+    width: min(320px, 100%);
+    overflow-y: auto;
+    padding: 12px 16px;
+    background: var(--panel);
+    backdrop-filter: blur(8px);
+    border-left: 1px solid var(--border);
+    transform: translateX(100%);
+    transition: transform 0.2s;
+    visibility: hidden;
+  }
+  #advisor.open { transform: none; visibility: visible; }
+  #advisor h2 { display: flex; justify-content: space-between; align-items: center; font-size: 15px; margin: 0 0 8px; }
+  #advisor h3 { font-size: 13px; margin: 16px 0 6px; color: var(--muted); }
+  #advisor p { margin: 6px 0; }
+  #advisor .field { display: flex; gap: 6px; }
+  #advisor select { flex: 1; min-width: 0; }
+  #advisor progress { width: 100%; }
+  #advisor .bad { color: var(--bad); }
+  #advisor .credits { font-size: 12px; color: var(--muted); }
+  #advisor a { color: var(--accent); }
+  #advice div { display: flex; justify-content: space-between; font-family: var(--mono); }
+  #advice div.hold { color: var(--muted); }
+
+  .stick { position: relative; }
+  .advice-arrow {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    pointer-events: none;
+    opacity: 0;
+    transition: transform 0.2s, opacity 0.2s;
+  }
+  .advice-arrow svg { width: 90%; height: 90%; }
+</style>
+</head>
+<body>
+<header>
+  <a class="brand" href="../../"><img src="../../yzma-icon.svg" alt="">Jeyzma</a>
+  <h1>Tinyflight Sim</h1>
+  <span id="status" class="pill">starting</span>
+  <div class="tools">
+    <button id="restart" title="Power cycle the drone.">Restart</button>
+    <button id="pause">Pause</button>
+    <label>Speed
+      <select id="speed">
+        <option value="25">0.25×</option>
+        <option value="50">0.5×</option>
+        <option value="100" selected>1×</option>
+      </select>
+    </label>
+    <label>Camera
+      <select id="camera">
+        <option value="chase" selected>Chase</option>
+        <option value="pilot">Pilot</option>
+        <option value="orbit">Orbit</option>
+      </select>
+    </label>
+    <button id="console-toggle">Console</button>
+    <button id="advisor-toggle">Advisor</button>
+  </div>
+</header>
+<main>
+  <canvas id="view"></canvas>
+  <dl id="hud">
+    <dt>Status</dt><dd id="hud-armed">-</dd>
+    <dt>Mode</dt><dd id="hud-mode">-</dd>
+    <dt>Failsafe</dt><dd id="hud-failsafe">-</dd>
+    <dt>Height</dt><dd id="hud-height">-</dd>
+    <dt>Estimate</dt><dd id="hud-est">-</dd>
+    <dt>Speed</dt><dd id="hud-speed">-</dd>
+    <dt>Battery</dt><dd id="hud-battery">-</dd>
+    <dt>Time</dt><dd id="hud-time">-</dd>
+  </dl>
+  <div id="joystick"></div>
+  <section id="console" hidden>
+    <pre id="console-text"></pre>
+  </section>
+
+  <aside id="advisor">
+    <h2>Advisor <button id="advisor-close" aria-label="Close">×</button></h2>
+    <p>Fly to the green ring and hold there. A model reads where the drone is and advises how to move the sticks. Its advice shows as orange arrows on the sticks and at the drone.</p>
+    <p class="credits" id="backend">looking for a backend</p>
+
+    <h3>Model</h3>
+    <div class="field">
+      <select id="preset" aria-label="Model choice"></select>
+      <button id="load">Load</button>
+    </div>
+    <progress id="bar" max="100" value="0" hidden></progress>
+    <p id="advisor-status">starting</p>
+    <label><input id="advise" type="checkbox" checked> Advise me</label>
+
+    <h3>Target</h3>
+    <p>Distance <b id="distance">-</b>, reached <b id="reached">0</b></p>
+
+    <h3>Advice</h3>
+    <div id="advice"><p>Load a model to get advice.</p></div>
+
+    <h3>Credits</h3>
+    <p class="credits">
+      The sim is <a target="_blank" href="https://github.com/hybridgroup/tinyflight/tree/main/tools/tinyflightsim">tinyflightsim</a>
+      from tinyflight, under the Apache 2.0 license. Its runner comes from the TinyGo playground, under the BSD license,
+      and it draws with three.js, under the MIT license.
+      Powered by <a target="_blank" href="https://github.com/hybridgroup/yzma">yzma</a> and
+      <a target="_blank" href="https://github.com/ggml-org/llama.cpp">llama.cpp</a>.
+      <a target="_blank" href="https://github.com/hybridgroup/jeyzma">Source code</a>.
+    </p>
+  </aside>
+</main>
+<script src="../../models.js"></script>
+<script type="module" src="advisor.js"></script>
+</body>
+</html>
