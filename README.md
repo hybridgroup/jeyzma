@@ -126,6 +126,18 @@ Harvey, under the WTFPL. The copy in `web/plays/pacman` adds hooks so the page
 can read the board and hold the game at a junction. The audio and the font are
 left out.
 
+`/plays/tinyflightsim` is a StampFly drone simulator with a model as your
+flight advisor. Open the **Advisor** pane, load a model, and arm the drone. The
+model gets where a green target ring is, relative to the drone, and advises
+which way to go up or down, forward or back, and left or right. Orange arrows
+on the sticks and at the drone show its advice. Hold the drone at the ring for
+2 seconds and a new one appears.
+
+The sim is [tinyflightsim](https://github.com/hybridgroup/tinyflight/tree/main/tools/tinyflightsim)
+from tinyflight, under the Apache 2.0 license. `make build` clones tinyflight
+at the commit in `TINYFLIGHT_VERSION`, builds its firmware with TinyGo, and
+copies the sim page files, which run unchanged.
+
 ## The /v1/systemone request
 
 Set **Input** to the request to send the same JSON that llama-server takes at
