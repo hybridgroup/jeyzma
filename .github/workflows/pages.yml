@@ -28,6 +28,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
 
+      # The checkout belongs to another user than the container, so git and Go's VCS stamping refuse it.
+      - name: Trust the checkout
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
       - name: Check the WebAssembly code
         run: make check
 
