@@ -51,6 +51,10 @@
   #steps li.now { color: #f48122; font-weight: 600; }
   #steps li.done { color: var(--muted); text-decoration: line-through; }
   #hint:empty { display: none; }
+  #advisor button:disabled, #advisor select:disabled { opacity: 0.45; cursor: not-allowed; border-color: var(--border); }
+  #advisor .stage { margin: 0 -8px; padding: 2px 8px 6px; border-left: 3px solid transparent; border-radius: 4px; }
+  #advisor .stage.active { border-left-color: #f48122; background: color-mix(in srgb, #f48122 10%, transparent); }
+  #advisor .stage.active h3 { color: #f48122; }
 
   .stick { position: relative; }
   .advice-arrow {
@@ -113,6 +117,7 @@
     <p>Tell the drone where to go. A model reads each part of your instruction and picks a ring, home, or land. Orange arrows on the sticks and at the drone show the way to each step.</p>
     <p class="credits" id="backend">looking for a backend</p>
 
+    <section class="stage" data-stage="model">
     <h3>Model</h3>
     <div class="field">
       <select id="preset" aria-label="Model choice"></select>
@@ -120,7 +125,9 @@
     </div>
     <progress id="bar" max="100" value="0" hidden></progress>
     <p id="advisor-status">starting</p>
+    </section>
 
+    <section class="stage" data-stage="instruction">
     <h3>Instruction</h3>
     <input id="instruction" type="text" aria-label="Instruction" placeholder="go to the red ring, then come home and land">
     <div class="examples">
@@ -131,13 +138,16 @@
     <div class="field">
       <button id="plan" disabled>Plan</button>
       <label><input id="advise" type="checkbox" checked> Show arrows</label>
-      <label><input id="autopilot" type="checkbox"> Autopilot</label>
+      <label><input id="autopilot" type="checkbox" checked> Autopilot</label>
     </div>
+    </section>
 
+    <section class="stage" data-stage="fly">
     <h3>Plan</h3>
     <p id="hint"></p>
     <ol id="steps"></ol>
     <p>Distance to this step <b id="distance">-</b></p>
+    </section>
 
     <h3>Credits</h3>
     <p class="credits">
