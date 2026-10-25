@@ -53,10 +53,13 @@ tinyflightsim:
 	cp -r $(TINYFLIGHT_DIR)/tools/tinyflightsim/web/* $(SIM_DIR)/
 	cp $(TINYFLIGHT_DIR)/LICENSE $(SIM_DIR)/LICENSE
 
+# assets copies the page, and the README screenshots for the plays page.
 assets:
 	mkdir -p $(BUILD_DIR)
 	cp -f $(YZMA_DIR)/wasm/yzma-loader.js $(BUILD_DIR)/
 	cp -r web/* $(BUILD_DIR)/
+	cp images/jeyzma-plays-pacman.png $(BUILD_DIR)/plays/pacman.png
+	cp images/jeyzma-plays-tinyflightsim.png $(BUILD_DIR)/plays/tinyflightsim.png
 
 # This server sets the same headers as the service worker, so either one is
 # enough on localhost.
