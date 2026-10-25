@@ -49,20 +49,20 @@ function bar(percent) {
   $("bar").value = percent < 0 ? 0 : percent;
 }
 
-// layout places the rings apart, with clear differences in height and distance.
+// layout places the rings about a quarter turn apart, each at its own height and distance.
 function layout() {
-  for (let tries = 0; tries < 500; tries++) {
-    const rings = {};
-    for (const name of Object.keys(RINGS)) {
-      const angle = Math.random() * 2 * Math.PI;
-      const d = 0.8 + Math.random() * 1.2;
-      rings[name] = { north: Math.cos(angle) * d, east: Math.sin(angle) * d, height: 0.3 + Math.random() * 0.9 };
-    }
-    const list = Object.values(rings);
-    const apart = (f, gap) => list.every((a, i) => list.every((b, j) => i === j || Math.abs(f(a) - f(b)) >= gap));
-    const spaced = list.every((a, i) => list.every((b, j) => i === j || Math.hypot(a.north - b.north, a.east - b.east) >= 0.7));
-    if (spaced && apart((r) => r.height, 0.15) && apart((r) => Math.hypot(r.north, r.east), 0.2)) return rings;
-  }
+  const shuffle = (list) => list.map((v) => [Math.random(), v]).sort((x, y) => x[0] - y[0]).map(([, v]) => v);
+  const heights = shuffle([0.35, 0.6, 0.85, 1.1]);
+  const dists = shuffle([0.9, 1.3, 1.7, 2.1]);
+  const turn = Math.random() * 2 * Math.PI;
+  const jitter = (size) => (Math.random() - 0.5) * size;
+  const rings = {};
+  Object.keys(RINGS).forEach((name, i) => {
+    const angle = turn + (i * Math.PI) / 2 + jitter(0.6);
+    const d = dists[i] + jitter(0.1);
+    rings[name] = { north: Math.cos(angle) * d, east: Math.sin(angle) * d, height: heights[i] + jitter(0.08) };
+  });
+  return rings;
 }
 
 const rings = layout();
@@ -230,6 +230,14 @@ function autopilot(on, throttle, pitch, roll) {
   joystick.touch.right = { id: "autopilot", x: roll * 0.3, y: pitch * 0.3 };
 }
 
+// showStage highlights the section the user works on next.
+function showStage() {
+  const stage = !ready ? "model" : current >= plan.length ? "instruction" : "fly";
+  for (const el of document.querySelectorAll("#advisor .stage")) {
+    el.classList.toggle("active", el.dataset.stage === stage);
+  }
+}
+
 // fly works out the advice for the current step and moves the plan on when it is reached.
 function fly(now) {
   const t = target();
@@ -250,6 +258,7 @@ function fly(now) {
     }
   }
   $("hint").textContent = hint;
+  showStage();
 
   const active = t && d.armed;
   const advise = active && $("advise").checked;
@@ -305,6 +314,7 @@ worker.onmessage = (event) => {
       downloading = false;
       bar(-1);
       $("load").disabled = false;
+      $("preset").disabled = false;
       $("plan").disabled = false;
       status("model loaded, " + text + ". Type an instruction and press Plan.");
       break;
@@ -318,6 +328,7 @@ worker.onmessage = (event) => {
       downloading = false;
       bar(-1);
       $("load").disabled = false;
+      $("preset").disabled = false;
       const p = pending;
       pending = null;
       if (p) p.reject(text);
@@ -334,6 +345,7 @@ $("load").onclick = () => {
   downloading = true;
   bar(0);
   $("load").disabled = true;
+  $("preset").disabled = true;
   $("plan").disabled = true;
   status("waiting for the worker");
   worker.postMessage({ kind: "decide-load", url: entry.url, config: entry.config, readout: entry.readout });
