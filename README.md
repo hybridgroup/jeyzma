@@ -1,6 +1,6 @@
 # Jeyzma
 
-Go make a decision! Run System One models, 100% local in your browser using WebAssembly written in Go.
+Go make a decision! Run System One models entirely in your local browser using WebAssembly written in Go.
 
 [![Jeyzma in a browser](./images/jeyzma-in-browser.png)](https://jeyzma.com)
 
@@ -65,7 +65,7 @@ Any URL works if the host sends CORS headers. Hugging Face does.
 
 `make build` downloads about 13 MB of llama.cpp into `build/`, compiles the Go
 program, and copies the page. The only binary files in the repository are the
-social card and the three screenshots.
+social cards and the three screenshots.
 
 The download comes from
 [llama-cpp-builder](https://github.com/hybridgroup/llama-cpp-builder). It uses
@@ -255,6 +255,14 @@ change.
 
 ```
 inkscape images/social-card.svg --export-type=png --export-filename=web/social-card.png -w 1200 -h 630
+```
+
+Each play page has its own card with a crop of its screenshot. Its source is
+`images/social-card-<play>.svg`.
+
+```
+inkscape images/social-card-pacman.svg --export-type=png --export-filename=web/plays/pacman/social-card.png -w 1200 -h 630
+inkscape images/social-card-tinyflightsim.svg --export-type=png --export-filename=web/plays/tinyflightsim/social-card.png -w 1200 -h 630
 ```
 
 ## License
