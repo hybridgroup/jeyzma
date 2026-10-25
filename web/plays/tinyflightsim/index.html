@@ -42,8 +42,15 @@
   #advisor .bad { color: var(--bad); }
   #advisor .credits { font-size: 12px; color: var(--muted); }
   #advisor a { color: var(--accent); }
-  #advice div { display: flex; justify-content: space-between; font-family: var(--mono); }
-  #advice div.hold { color: var(--muted); }
+  #advisor input[type=text] { width: 100%; font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px; }
+  #advisor .examples { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; margin: 6px 0; }
+  #advisor .examples button { font-size: 12px; text-align: left; }
+  #steps { margin: 6px 0; padding-left: 22px; }
+  #steps li { margin: 4px 0; }
+  #steps li small { display: block; color: var(--muted); font-family: var(--mono); font-size: 11px; }
+  #steps li.now { color: #f48122; font-weight: 600; }
+  #steps li.done { color: var(--muted); text-decoration: line-through; }
+  #hint:empty { display: none; }
 
   .stick { position: relative; }
   .advice-arrow {
@@ -103,7 +110,7 @@
 
   <aside id="advisor">
     <h2>Advisor <button id="advisor-close" aria-label="Close">×</button></h2>
-    <p>Fly to the green ring and hold there. A model reads where the drone is and advises how to move the sticks. Its advice shows as orange arrows on the sticks and at the drone.</p>
+    <p>Tell the drone where to go. A model reads each part of your instruction and picks a ring, home, or land. Orange arrows on the sticks and at the drone show the way to each step.</p>
     <p class="credits" id="backend">looking for a backend</p>
 
     <h3>Model</h3>
@@ -113,13 +120,24 @@
     </div>
     <progress id="bar" max="100" value="0" hidden></progress>
     <p id="advisor-status">starting</p>
-    <label><input id="advise" type="checkbox" checked> Advise me</label>
 
-    <h3>Target</h3>
-    <p>Distance <b id="distance">-</b>, reached <b id="reached">0</b></p>
+    <h3>Instruction</h3>
+    <input id="instruction" type="text" aria-label="Instruction" placeholder="go to the red ring, then come home and land">
+    <div class="examples">
+      <button data-example>go to yellow, then blue, then red</button>
+      <button data-example>fly to the highest ring, then come back home and land</button>
+      <button data-example>visit the closest ring, then the farthest ring</button>
+    </div>
+    <div class="field">
+      <button id="plan" disabled>Plan</button>
+      <label><input id="advise" type="checkbox" checked> Show arrows</label>
+      <label><input id="autopilot" type="checkbox"> Autopilot</label>
+    </div>
 
-    <h3>Advice</h3>
-    <div id="advice"><p>Load a model to get advice.</p></div>
+    <h3>Plan</h3>
+    <p id="hint"></p>
+    <ol id="steps"></ol>
+    <p>Distance to this step <b id="distance">-</b></p>
 
     <h3>Credits</h3>
     <p class="credits">
