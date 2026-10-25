@@ -20,30 +20,19 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # The TinyGo dev image has TinyGo, Go, make, git, and curl.
+    container: ghcr.io/tinygo-org/tinygo-dev:latest
     env:
       BUILD_DIR: build
     steps:
       - name: Checkout
         uses: actions/checkout@v5
 
-      - name: Install Go
-        uses: actions/setup-go@v6
-        with:
-          go-version: 'stable'
-
       - name: Check the WebAssembly code
         run: make check
 
-      # The dev build comes from the last good Linux run on the TinyGo dev branch.
-      - name: Install TinyGo
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -e
-          run=$(gh run list -R tinygo-org/tinygo --workflow linux.yml --branch dev --status success --limit 1 --json databaseId --jq '.[0].databaseId')
-          gh run download "$run" -R tinygo-org/tinygo -p 'tinygo_*_amd64.deb' -D tinygo
-          sudo dpkg -i tinygo/*/*.deb
-          tinygo version
+      - name: Show the TinyGo version
+        run: tinygo version
 
       - name: Build the page
         run: make build
