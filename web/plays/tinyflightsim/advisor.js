@@ -1,5 +1,5 @@
-// advisor.js asks a model how to fly the drone to a target and shows the
-// advice as arrows on the sticks and at the drone.
+// advisor.js turns a typed instruction into flight steps with a model, then
+// shows the way to each step as arrows on the sticks and at the drone.
 import "./app.js";
 import * as THREE from "three";
 import { STATE } from "./sim.js";
@@ -12,10 +12,11 @@ const ned = (x, y, z) => new THREE.Vector3(y, -z, -x);
 
 const NEAR = 0.15;
 const NEAR_HEIGHT = 0.1;
-const HOLD_MS = 2000;
-const PAUSE_MS = 250;
+const HOLD_MS = 1000;
+const HOME_HEIGHT = 0.4;
+const LOW = 0.12;
 const ORANGE = 0xf48122;
-const GREEN = 0x2fbf71;
+const RINGS = { red: 0xd8413a, blue: 0x2f6fd8, yellow: 0xe8c020, green: 0x2fbf71 };
 
 const params = new URLSearchParams(location.search);
 const query = new URLSearchParams();
@@ -26,14 +27,17 @@ const worker = new Worker("../../worker.js" + (query.size ? "?" + query : ""));
 
 let ready = false;
 let downloading = false;
-let thinking = false;
-let timer = null;
-let reached = 0;
+let pending = null;
+let plan = [];
+let current = 0;
 let nearSince = 0;
+let disarming = false;
 
 for (const [i, entry] of MODELS.entries()) {
   $("preset").add(new Option(entry.name, String(i)));
 }
+// Laya planned best in our tests.
+$("preset").value = String(Math.max(0, MODELS.findIndex((e) => e.name.startsWith("Laya"))));
 
 function status(text, bad) {
   $("advisor-status").textContent = text;
@@ -45,91 +49,150 @@ function bar(percent) {
   $("bar").value = percent < 0 ? 0 : percent;
 }
 
-// The target is a ring at the height to hold, on a pole down to the floor.
-const target = { north: 0, east: 0, height: 0 };
-const ringMaterial = new THREE.MeshBasicMaterial({ color: GREEN });
-const ring = new THREE.Mesh(new THREE.TorusGeometry(0.15, 0.006, 8, 48), ringMaterial);
-ring.rotation.x = Math.PI / 2;
-const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.003, 0.003, 1, 8), ringMaterial);
-view.scene.add(ring, pole);
-
-function placeTarget() {
-  const angle = Math.random() * 2 * Math.PI;
-  const dist = 0.5 + Math.random();
-  const s = sim.state;
-  target.north = s[STATE.pos] + Math.cos(angle) * dist;
-  target.east = s[STATE.pos + 1] + Math.sin(angle) * dist;
-  // Keep it within 1.5 m of the start.
-  const len = Math.hypot(target.north, target.east);
-  if (len > 1.5) {
-    target.north *= 1.5 / len;
-    target.east *= 1.5 / len;
+// layout places the rings apart, with clear differences in height and distance.
+function layout() {
+  for (let tries = 0; tries < 500; tries++) {
+    const rings = {};
+    for (const name of Object.keys(RINGS)) {
+      const angle = Math.random() * 2 * Math.PI;
+      const d = 0.8 + Math.random() * 1.2;
+      rings[name] = { north: Math.cos(angle) * d, east: Math.sin(angle) * d, height: 0.3 + Math.random() * 0.9 };
+    }
+    const list = Object.values(rings);
+    const apart = (f, gap) => list.every((a, i) => list.every((b, j) => i === j || Math.abs(f(a) - f(b)) >= gap));
+    const spaced = list.every((a, i) => list.every((b, j) => i === j || Math.hypot(a.north - b.north, a.east - b.east) >= 0.7));
+    if (spaced && apart((r) => r.height, 0.15) && apart((r) => Math.hypot(r.north, r.east), 0.2)) return rings;
   }
-  target.height = 0.4 + Math.random() * 0.8;
-  ring.position.copy(ned(target.north, target.east, -target.height));
-  pole.scale.y = target.height;
-  pole.position.copy(ned(target.north, target.east, -target.height / 2));
 }
 
-// look finds the heading and the target and speed in body terms.
-function look() {
+const rings = layout();
+for (const [name, r] of Object.entries(rings)) {
+  const material = new THREE.MeshBasicMaterial({ color: RINGS[name] });
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.15, 0.006, 8, 48), material);
+  ring.rotation.x = Math.PI / 2;
+  ring.position.copy(ned(r.north, r.east, -r.height));
+  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.003, 0.003, r.height, 8), material);
+  pole.position.copy(ned(r.north, r.east, -r.height / 2));
+  view.scene.add(ring, pole);
+}
+const pad = new THREE.Mesh(new THREE.CircleGeometry(0.12, 32), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.6 }));
+pad.rotation.x = -Math.PI / 2;
+pad.position.y = 0.003;
+view.scene.add(pad);
+
+// look finds the heading, and a point's offset and the speed in body terms.
+function look(north = 0, east = 0, height = 0) {
   const s = sim.state;
   const [w, x, y, z] = s.subarray(STATE.quat, STATE.quat + 4);
   const yaw = Math.atan2(2 * (w * z + x * y), 1 - 2 * (y * y + z * z));
   const c = Math.cos(yaw);
   const n = Math.sin(yaw);
-  const body = (north, east) => [north * c + east * n, -north * n + east * c];
-  const height = -s[STATE.pos + 2];
-  const [ahead, right] = body(target.north - s[STATE.pos], target.east - s[STATE.pos + 1]);
+  const body = (dn, de) => [dn * c + de * n, -dn * n + de * c];
+  const [ahead, right] = body(north - s[STATE.pos], east - s[STATE.pos + 1]);
   const [forwardSpeed, rightSpeed] = body(s[STATE.vel], s[STATE.vel + 1]);
   return {
     yaw,
-    height,
     ahead,
     right,
-    climb: target.height - height,
+    climb: height + s[STATE.pos + 2],
     forwardSpeed,
     rightSpeed,
     upSpeed: -s[STATE.vel + 2],
+    height: -s[STATE.pos + 2],
     armed: s[STATE.armed] > 0,
   };
 }
 
-const m = (v) => Math.abs(v).toFixed(2) + " m";
-const ms = (v) => Math.abs(v).toFixed(2) + " m/s";
+const m = (v) => Math.abs(v).toFixed(1) + " m";
 
-// describe turns the drone and the target into the state and the questions.
-function describe(d) {
-  const state = {
-    drone: d.height < 0.05 ? "armed, on the ground" : "flying",
-    height: m(d.height),
-    "target height": m(target.height),
-    target: [
-      `${m(d.ahead)} ${d.ahead >= 0 ? "ahead" : "behind"}`,
-      `${m(d.right)} to the ${d.right >= 0 ? "right" : "left"}`,
-      `${m(d.climb)} ${d.climb >= 0 ? "higher" : "lower"}`,
-    ].join(", "),
-    moving: [
-      `${ms(d.forwardSpeed)} ${d.forwardSpeed >= 0 ? "forward" : "back"}`,
-      `${ms(d.rightSpeed)} ${d.rightSpeed >= 0 ? "right" : "left"}`,
-      `${ms(d.upSpeed)} ${d.upSpeed >= 0 ? "up" : "down"}`,
-    ].join(", "),
-  };
-  const questions = [
-    {
-      question: "Which way should the drone go up or down to reach the target height and stop there?",
-      options: { up: "climb", hold: "stay at this height", down: "descend" },
-    },
-    {
-      question: "Which way should the drone move forward or back to reach the target and stop there?",
-      options: { forward: "move toward the nose", hold: "stay put front to back", back: "move toward the tail" },
-    },
-    {
-      question: "Which way should the drone move left or right to reach the target and stop there?",
-      options: { left: "move to the left", hold: "stay put side to side", right: "move to the right" },
-    },
-  ];
-  return { state, questions };
+// ringOptions describes each ring from where the drone is now, standout facts first.
+function ringOptions() {
+  const seen = Object.fromEntries(Object.entries(rings).map(([name, r]) => [name, { ...look(r.north, r.east), height: r.height }]));
+  const far = (o) => Math.hypot(o.ahead, o.right);
+  const names = Object.keys(seen);
+  const best = (f) => names.reduce((a, b) => (f(seen[b]) > f(seen[a]) ? b : a));
+  const tags = { highest: best((o) => o.height), lowest: best((o) => -o.height), closest: best((o) => -far(o)), farthest: best(far) };
+  const options = {};
+  for (const name of names) {
+    const o = seen[name];
+    const mine = Object.keys(tags).filter((k) => tags[k] === name);
+    const lead = mine.length ? `the ${mine.join(" and ")} ring, ${name}` : `the ${name} ring`;
+    options[name] = `to ${lead}, ${o.ahead >= 0 ? "ahead" : "behind"} on the ${o.right >= 0 ? "right" : "left"}, ${m(o.height)} high, ${m(far(o))} away`;
+  }
+  options.home = "come back home to the pad where it took off";
+  options.land = "down to the ground, to land and stop";
+  return options;
+}
+
+// split cuts an instruction into parts, so the model reads one part at a time.
+function split(text) {
+  return text
+    .split(/\s*,?\s*\b(?:and then|then|and)\b\s*|\s*[,.;]\s*/i)
+    .map((c) => c.trim())
+    .filter((c) => c && !/^first$/i.test(c));
+}
+
+function decide(state, question) {
+  return new Promise((resolve, reject) => {
+    pending = { resolve, reject };
+    worker.postMessage({ kind: "decide", state: JSON.stringify(state), question: JSON.stringify(question) });
+  });
+}
+
+async function makePlan() {
+  const text = $("instruction").value.trim();
+  if (!ready || pending || !text) return;
+  $("plan").disabled = true;
+  const options = ringOptions();
+  const steps = [];
+  try {
+    for (const part of split(text)) {
+      status(`reading "${part}"`);
+      const out = await decide({ instruction: part }, { question: "Where does this instruction send the drone?", options });
+      steps.push({ part, ...out.result });
+    }
+    status("planned, press Space twice to arm and fly");
+  } catch (err) {
+    status(String(err), true);
+  }
+  plan = steps;
+  current = 0;
+  nearSince = 0;
+  disarming = false;
+  $("plan").disabled = false;
+  showPlan();
+}
+
+const STEP_TEXT = { home: "Fly home", land: "Land" };
+
+function showPlan() {
+  $("steps").replaceChildren(
+    ...plan.map((step, i) => {
+      const li = document.createElement("li");
+      li.className = i < current ? "done" : i === current ? "now" : "";
+      li.innerHTML = "<span></span><small></small>";
+      const sure = step.confidence ?? Math.max(...step.probabilities);
+      li.children[0].textContent = STEP_TEXT[step.answer] || `Fly to the ${step.answer} ring`;
+      li.children[1].textContent = `"${step.part}" ${sure.toFixed(2)}`;
+      return li;
+    }),
+  );
+  if (plan.length && current >= plan.length) {
+    const li = document.createElement("li");
+    li.className = "done";
+    li.textContent = "All done";
+    $("steps").appendChild(li);
+  }
+}
+
+// target is where the current step wants the drone.
+function target() {
+  const step = plan[current];
+  if (!step) return null;
+  if (rings[step.answer]) return rings[step.answer];
+  const s = sim.state;
+  if (step.answer === "land") return { north: s[STATE.pos], east: s[STATE.pos + 1], height: 0, land: true };
+  return { north: 0, east: 0, height: HOME_HEIGHT };
 }
 
 // The stick arrows point up, and turn toward the advice.
@@ -148,99 +211,79 @@ const sceneArrow = new THREE.ArrowHelper(new THREE.Vector3(0, 1, 0), new THREE.V
 sceneArrow.visible = false;
 view.scene.add(sceneArrow);
 
-function pointStick(el, x, y, confidence) {
-  if (x === 0 && y === 0) {
-    el.style.opacity = 0;
-    return;
-  }
+function pointStick(el, x, y) {
+  const size = Math.min(1, Math.hypot(x, y));
+  el.style.opacity = size < 0.15 ? 0 : 0.4 + 0.6 * size;
   el.style.transform = `rotate(${Math.atan2(x, y)}rad)`;
-  el.style.opacity = 0.35 + 0.65 * confidence;
 }
 
-function clearAdvice() {
-  stickArrows.left.style.opacity = 0;
-  stickArrows.right.style.opacity = 0;
-  sceneArrow.visible = false;
-}
+// push turns an offset into a stick amount. It looks ahead by the speed so the drone slows near the target.
+const push = (offset, speed) => Math.max(-1, Math.min(1, (offset - speed * 0.8) / 0.4));
 
-const SIGN = { up: 1, forward: 1, right: 1, down: -1, back: -1, left: -1, hold: 0 };
-
-// show draws the three answers on the sticks, at the drone, and in the pane.
-function show(results, d) {
-  const [throttle, pitch, roll] = results.map((r) => SIGN[r.answer] ?? 0);
-  const sure = (r) => r.confidence ?? Math.max(...r.probabilities);
-  pointStick(stickArrows.left, 0, throttle, sure(results[0]));
-  pointStick(stickArrows.right, roll, pitch, Math.min(sure(results[1]), sure(results[2])));
-
-  const north = pitch * Math.cos(d.yaw) - roll * Math.sin(d.yaw);
-  const east = pitch * Math.sin(d.yaw) + roll * Math.cos(d.yaw);
-  const dir = ned(north, east, -throttle);
-  sceneArrow.visible = dir.lengthSq() > 0;
-  if (sceneArrow.visible) sceneArrow.setDirection(dir.normalize());
-
-  $("advice").replaceChildren(
-    ...results.map((r, i) => {
-      const row = document.createElement("div");
-      row.className = r.answer === "hold" ? "hold" : "";
-      row.innerHTML = "<span></span><span></span>";
-      row.children[0].textContent = ["Height", "Front", "Side"][i] + " " + r.answer;
-      row.children[1].textContent = sure(r).toFixed(3);
-      return row;
-    }),
-  );
-}
-
-function hint(text) {
-  clearAdvice();
-  $("advice").replaceChildren(Object.assign(document.createElement("p"), { textContent: text }));
-}
-
-function ask(delay) {
-  clearTimeout(timer);
-  timer = setTimeout(askNow, delay);
-}
-
-function askNow() {
-  if (!ready || thinking) return;
-  if (!$("advise").checked) {
-    hint("Advice is off.");
-    return;
+// autopilot moves the sticks like a touch would, so the drone follows the advice itself.
+function autopilot(on, throttle, pitch, roll) {
+  for (const side of ["left", "right"]) {
+    if (!on && joystick.touch[side]?.id === "autopilot") joystick.touch[side] = null;
   }
-  const d = look();
-  if (joystick.screen === "setup") {
-    hint("Press Space to leave setup, then press it again to arm.");
-    ask(500);
-    return;
-  }
-  if (!d.armed) {
-    hint("Press Space to arm the drone.");
-    ask(500);
-    return;
-  }
-  const { state, questions } = describe(d);
-  thinking = { d };
-  worker.postMessage({ kind: "decide-many", state: JSON.stringify(state), questions: JSON.stringify(questions) });
+  if (!on) return;
+  joystick.touch.left = { id: "autopilot", x: 0, y: throttle * 0.8 };
+  joystick.touch.right = { id: "autopilot", x: roll * 0.3, y: pitch * 0.3 };
 }
 
-// watch moves the arrow with the drone and checks for a reached target.
-function watch(now) {
+// fly works out the advice for the current step and moves the plan on when it is reached.
+function fly(now) {
+  const t = target();
+  const d = t && look(t.north, t.east, t.height);
+  let hint = "";
+  if (!t) {
+    hint = plan.length ? "" : "Type an instruction and press Plan.";
+  } else if (joystick.screen === "setup") {
+    hint = "Press Space to leave setup, then press it again to arm.";
+  } else if (!d.armed) {
+    hint = t.land ? "" : "Press Space to arm the drone.";
+  } else if (t.land && d.height < LOW) {
+    hint = "Press Space to disarm.";
+    // The firmware has no land command, so the autopilot disarms near the ground.
+    if ($("autopilot").checked && !disarming) {
+      disarming = true;
+      joystick.pressScreen();
+    }
+  }
+  $("hint").textContent = hint;
+
+  const active = t && d.armed;
+  const advise = active && $("advise").checked;
+  const throttle = active ? push(d.climb, d.upSpeed) : 0;
+  const pitch = active && !t.land ? push(d.ahead, d.forwardSpeed) : 0;
+  const roll = active && !t.land ? push(d.right, d.rightSpeed) : 0;
+  pointStick(stickArrows.left, 0, advise ? throttle : 0);
+  pointStick(stickArrows.right, advise ? roll : 0, advise ? pitch : 0);
+  autopilot(active && $("autopilot").checked, throttle, pitch, roll);
+
   const s = sim.state;
   sceneArrow.position.copy(ned(s[STATE.pos], s[STATE.pos + 1], s[STATE.pos + 2]));
-  const d = look();
-  const across = Math.hypot(d.ahead, d.right);
-  $("distance").textContent = Math.hypot(across, d.climb).toFixed(2) + " m";
-  if (across < NEAR && Math.abs(d.climb) < NEAR_HEIGHT && d.armed) {
-    nearSince ||= now;
-    if (now - nearSince > HOLD_MS) {
-      reached++;
-      $("reached").textContent = reached;
+  const dir = advise ? ned(pitch * Math.cos(d.yaw) - roll * Math.sin(d.yaw), pitch * Math.sin(d.yaw) + roll * Math.cos(d.yaw), -throttle) : null;
+  sceneArrow.visible = !!dir && dir.lengthSq() > 0.02;
+  if (sceneArrow.visible) sceneArrow.setDirection(dir.normalize());
+
+  if (t) {
+    $("distance").textContent = Math.hypot(d.ahead, d.right, d.climb).toFixed(2) + " m";
+    const there = t.land ? !d.armed : d.armed && Math.hypot(d.ahead, d.right) < NEAR && Math.abs(d.climb) < NEAR_HEIGHT;
+    if (there) {
+      nearSince ||= now;
+      if (now - nearSince > HOLD_MS) {
+        current++;
+        nearSince = 0;
+        disarming = false;
+        showPlan();
+      }
+    } else {
       nearSince = 0;
-      placeTarget();
     }
   } else {
-    nearSince = 0;
+    $("distance").textContent = "-";
   }
-  requestAnimationFrame(watch);
+  requestAnimationFrame(fly);
 }
 
 worker.onmessage = (event) => {
@@ -262,27 +305,25 @@ worker.onmessage = (event) => {
       downloading = false;
       bar(-1);
       $("load").disabled = false;
-      status("model loaded, " + text);
-      ask(0);
+      $("plan").disabled = false;
+      status("model loaded, " + text + ". Type an instruction and press Plan.");
       break;
     case "result": {
-      const out = JSON.parse(text);
-      const turn = thinking;
-      thinking = false;
-      if (turn && $("advise").checked) {
-        show(Array.isArray(out.result) ? out.result : [out.result], turn.d);
-        status(`advised in ${out.ms} ms`);
-      }
-      ask(PAUSE_MS);
+      const p = pending;
+      pending = null;
+      p?.resolve(JSON.parse(text));
       break;
     }
-    case "error":
+    case "error": {
       downloading = false;
-      thinking = false;
       bar(-1);
       $("load").disabled = false;
-      status(text, true);
+      const p = pending;
+      pending = null;
+      if (p) p.reject(text);
+      else status(text, true);
       break;
+    }
   }
 };
 
@@ -293,21 +334,34 @@ $("load").onclick = () => {
   downloading = true;
   bar(0);
   $("load").disabled = true;
+  $("plan").disabled = true;
   status("waiting for the worker");
   worker.postMessage({ kind: "decide-load", url: entry.url, config: entry.config, readout: entry.readout });
 };
 
-$("advise").onchange = () => ask(0);
+$("plan").onclick = () => makePlan();
+$("instruction").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") {
+    e.preventDefault();
+    $("instruction").blur();
+    makePlan();
+  }
+});
+for (const el of document.querySelectorAll("[data-example]")) {
+  el.onclick = () => {
+    $("instruction").value = el.textContent;
+  };
+}
 
 const pane = $("advisor");
 $("advisor-toggle").onclick = () => pane.classList.toggle("open");
 $("advisor-close").onclick = () => pane.classList.remove("open");
 
 // Keep Space for the joystick screen, as app.js does for the header.
-for (const el of pane.querySelectorAll("button, select, input")) {
+for (const el of pane.querySelectorAll("button, select, input[type=checkbox]")) {
   el.addEventListener("click", () => el.blur());
   el.addEventListener("change", () => el.blur());
 }
 
-placeTarget();
-requestAnimationFrame(watch);
+if (innerWidth > 700) pane.classList.add("open");
+requestAnimationFrame(fly);

@@ -126,14 +126,25 @@ Harvey, under the WTFPL. The copy in `web/plays/pacman` adds hooks so the page
 can read the board and hold the game at a junction. The audio and the font are
 left out.
 
-`/plays/tinyflightsim` is a StampFly drone simulator with a model as your
-flight advisor. Open the **Advisor** pane, load a model, and arm the drone. The
-model gets where a green target ring is, relative to the drone, and advises
-which way to go up or down, forward or back, and left or right. Orange arrows
-on the sticks and at the drone show its advice. Hold the drone at the ring for
-2 seconds and a new one appears.
+`/plays/tinyflightsim` is a StampFly drone simulator that you fly by typed
+instructions. Four colored rings stand around a home pad. Load a model in the
+**Advisor** pane and type something like "fly to the highest ring, then come
+back home and land". The page splits the instruction at "then", "and", and
+commas. The model reads each part on its own and picks a ring, home, or land.
+Each ring option leads with its standout facts, such as "the highest and
+farthest ring, blue", which is how the model resolves words like highest,
+lowest, closest, and farthest.
 
-[![Flying a drone with a model as advisor](./images/jeyzma-plays-tinyflightsim.png)](https://jeyzma.com/plays/tinyflightsim/)
+The plan shows as a list of steps. Orange arrows on the sticks and at the drone
+point the way to the current step. They come from a small controller, not the
+model. **Autopilot** moves the sticks for you. A step is done when the drone
+holds at the ring for 1 second, or when it is disarmed for land.
+
+In our tests Laya planned 90% of 40 instructions correctly, so the page picks
+it by default. Julia-1 planned about half. Instructions that name a ring by
+direction, such as "the ring ahead on the right", often fail.
+
+[![Flying a drone by typed instructions](./images/jeyzma-plays-tinyflightsim.png)](https://jeyzma.com/plays/tinyflightsim/)
 
 The sim is [tinyflightsim](https://github.com/hybridgroup/tinyflight/tree/main/tools/tinyflightsim)
 from tinyflight, under the Apache 2.0 license. `make build` clones tinyflight
