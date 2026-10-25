@@ -257,10 +257,12 @@ change.
 inkscape images/social-card.svg --export-type=png --export-filename=web/social-card.png -w 1200 -h 630
 ```
 
-Each play page has its own card with a crop of its screenshot. Its source is
+The plays page and each play page have their own card with crops of the
+screenshots. Their sources are `images/social-card-plays.svg` and
 `images/social-card-<play>.svg`.
 
 ```
+inkscape images/social-card-plays.svg --export-type=png --export-filename=web/plays/social-card.png -w 1200 -h 630
 inkscape images/social-card-pacman.svg --export-type=png --export-filename=web/plays/pacman/social-card.png -w 1200 -h 630
 inkscape images/social-card-tinyflightsim.svg --export-type=png --export-filename=web/plays/tinyflightsim/social-card.png -w 1200 -h 630
 ```
