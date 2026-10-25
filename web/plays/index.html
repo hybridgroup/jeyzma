@@ -2,14 +2,76 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Jeyzma plays</title>
-    <meta http-equiv="refresh" content="0; url=pacman/" />
-    <link rel="canonical" href="pacman/" />
-    <script>
-      location.replace("pacman/" + location.search);
-    </script>
+    <link rel="icon" href="../yzma-icon.svg" type="image/svg+xml" />
+    <meta name="description" content="Games and sims where a System One model plays along, 100% local in your browser." />
+
+    <script src="../coi-serviceworker.js"></script>
+
+    <link rel="stylesheet" href="../style.css" />
+    <style>
+      .plays { display: grid; gap: 20px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); margin: 24px 0; }
+      .play {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        color: var(--text);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        text-decoration: none;
+        transition: border-color 0.15s, transform 0.15s;
+      }
+      .play:hover { border-color: var(--orange); color: var(--text); transform: translateY(-2px); }
+      .play img { aspect-ratio: 16 / 10; border-bottom: 1px solid var(--line); display: block; object-fit: cover; object-position: top; width: 100%; }
+      .play div { padding: 14px 18px 18px; }
+      .play h2 { font-size: 20px; margin: 0 0 6px; }
+      .play p { color: var(--muted); font-size: 15px; margin: 0; }
+    </style>
   </head>
+
   <body>
-    <a href="pacman/">Play Pac-Man</a>
+    <header>
+      <div class="inner">
+        <a class="brand" href="../"><img src="../yzma-icon.svg" alt="" />Jeyzma</a>
+        <nav>
+          <a href="../">Decide</a>
+          <a target="_blank" href="https://yzma.ai">yzma</a>
+          <a target="_blank" href="https://github.com/hybridgroup/jeyzma">GitHub</a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="inner">
+      <p class="eyebrow">System One plays along</p>
+      <h1>Plays</h1>
+      <p class="lede">Pick one. A model runs in your browser and plays along with you.</p>
+
+      <div class="plays">
+        <a class="play" href="pacman/">
+          <img src="pacman.png" alt="Pac-Man with a model playing along" />
+          <div>
+            <h2>Pac-Man</h2>
+            <p>You play. At each junction a model gets the same board and picks its own move. See where you agree.</p>
+          </div>
+        </a>
+        <a class="play" href="tinyflightsim/">
+          <img src="tinyflightsim.png" alt="A drone flying to colored rings" />
+          <div>
+            <h2>Tinyflight Sim</h2>
+            <p>Type where the drone should go. A model turns your words into a flight plan, and arrows or the autopilot fly it.</p>
+          </div>
+        </a>
+      </div>
+    </main>
+
+    <footer>
+      <div class="inner">
+        Powered by <a target="_blank" href="https://github.com/hybridgroup/yzma">yzma</a> and
+        <a target="_blank" href="https://github.com/ggml-org/llama.cpp">llama.cpp</a>.
+        <a target="_blank" href="https://github.com/hybridgroup/jeyzma">Source code</a>.
+      </div>
+    </footer>
   </body>
 </html>
