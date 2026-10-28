@@ -4,9 +4,9 @@
 BUILD_DIR ?= build
 PORT ?= 8080
 
-# The llama.cpp release from llama-cpp-builder. v0.7.0 is the release that
-# yzma v1.30.0 installs. d1 needs it.
-LLAMA_VERSION ?= v0.7.0
+# The llama.cpp release from llama-cpp-builder. v0.8.0 is the release that
+# yzma v1.31.0 installs. d1 needs v0.7.0 or later.
+LLAMA_VERSION ?= v0.8.0
 
 # The tinyflight commit for the flight sim page.
 TINYFLIGHT_VERSION ?= dd9195e1e028287e9a3fa7f6c003729f4a808ba9

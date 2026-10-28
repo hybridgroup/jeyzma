@@ -2,7 +2,7 @@ module github.com/hybridgroup/jeyzma
 
 go 1.26.0
 
-require github.com/hybridgroup/yzma v1.30.0
+require github.com/hybridgroup/yzma v1.31.0
 
 require (
 	github.com/ardanlabs/jinja v1.1.0 // indirect
