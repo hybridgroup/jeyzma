@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"syscall/js"
 	"time"
 
@@ -63,9 +64,15 @@ func load(this js.Value, args []js.Value) any {
 			}
 		}
 
-		post("status", "downloading the model")
+		// The worker gives a blob URL for a model in its cache.
+		cached := strings.HasPrefix(modelURL, "blob:")
+		if cached {
+			post("status", "reading the model from the cache")
+		} else {
+			post("status", "downloading the model")
+		}
 		err := llamawasm.FetchModelFile(modelPath, modelURL, func(done, total int64) {
-			if total > 0 {
+			if total > 0 && !cached {
 				post("progress", fmt.Sprintf("%d%%", done*100/total))
 			}
 		})
