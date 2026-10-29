@@ -41,7 +41,7 @@ make serve
 ```
 
 Open <http://localhost:8080>, click **Load**, and wait for the model to
-download. The browser caches it. Then click **Decide**.
+download. The page keeps the model in the browser storage, so the next visit loads it without downloading it again. Then click **Decide**.
 
 The list has six models.
 
