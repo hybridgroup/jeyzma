@@ -39,9 +39,9 @@ for (const [i, entry] of MODELS.entries()) {
 // Laya planned best in our tests.
 $("preset").value = String(Math.max(0, MODELS.findIndex((e) => e.name.startsWith("Laya"))));
 
-function status(text, bad) {
-  $("advisor-status").textContent = text;
-  $("advisor-status").className = bad ? "bad" : "";
+function status(text, bad, id = "advisor-status") {
+  $(id).textContent = text;
+  $(id).className = bad ? "bad" : "";
 }
 
 function bar(percent) {
@@ -147,13 +147,13 @@ async function makePlan() {
   const steps = [];
   try {
     for (const part of split(text)) {
-      status(`reading "${part}"`);
+      status(`reading "${part}"`, false, "plan-status");
       const out = await decide({ instruction: part }, { question: "Where does this instruction send the drone?", options });
       steps.push({ part, ...out.result });
     }
-    status("planned, press Space twice to arm and fly");
+    status("planned, press Space twice to arm and fly", false, "plan-status");
   } catch (err) {
-    status(String(err), true);
+    status(String(err), true, "plan-status");
   }
   plan = steps;
   current = 0;
@@ -350,6 +350,7 @@ $("load").onclick = () => {
   $("clear-cache").disabled = true;
   $("preset").disabled = true;
   $("plan").disabled = true;
+  status("", false, "plan-status");
   status("waiting for the worker");
   worker.postMessage({ kind: "decide-load", url: entry.url, config: entry.config, readout: entry.readout });
 };
