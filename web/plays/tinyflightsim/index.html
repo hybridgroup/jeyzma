@@ -70,7 +70,7 @@
   #steps li small { display: block; color: var(--muted); font-family: var(--mono); font-size: 11px; }
   #steps li.now { color: #f48122; font-weight: 600; }
   #steps li.done { color: var(--muted); text-decoration: line-through; }
-  #hint:empty { display: none; }
+  #hint:empty, #plan-status:empty { display: none; }
   #advisor button:disabled, #advisor select:disabled { opacity: 0.45; cursor: not-allowed; border-color: var(--border); }
   #advisor .stage { margin: 0 -8px; padding: 2px 8px 6px; border-left: 3px solid transparent; border-radius: 4px; }
   #advisor .stage.active { border-left-color: #f48122; background: color-mix(in srgb, #f48122 10%, transparent); }
@@ -162,6 +162,7 @@
       <label><input id="advise" type="checkbox" checked> Show arrows</label>
       <label><input id="autopilot" type="checkbox" checked> Autopilot</label>
     </div>
+    <p id="plan-status"></p>
     </section>
 
     <section class="stage" data-stage="fly">
