@@ -38,3 +38,22 @@ const MODELS = [
     readout: "decider",
   },
 ];
+
+// clearModelCache removes the models that worker.js keeps in the origin
+// private file system. It returns the number of bytes it freed.
+async function clearModelCache() {
+  const dir = await navigator.storage.getDirectory();
+  let freed = 0;
+  for await (const [name, handle] of dir.entries()) {
+    if (handle.kind !== "file" || !name.endsWith(".gguf")) continue;
+    freed += (await handle.getFile()).size;
+    await dir.removeEntry(name);
+  }
+  return freed;
+}
+
+// cacheClearedText describes how much clearModelCache freed.
+function cacheClearedText(bytes) {
+  if (bytes === 0) return "the model cache is empty";
+  return "cleared " + Math.round(bytes / 1e6) + " MB of cached models";
+}

@@ -78,6 +78,7 @@
         <select id="preset" aria-label="Model choice"></select>
         <button id="load">Load</button>
       </div>
+      <button id="clear-cache" class="link-button">Clear model cache</button>
 
       <label class="check">
         <input id="wait" type="checkbox" />
@@ -423,6 +424,7 @@
             downloading = false;
             bar(-1);
             $("load").disabled = false;
+            $("clear-cache").disabled = false;
             status("model loaded, " + text + ". Press N to play.");
             break;
           case "result": {
@@ -442,6 +444,7 @@
             thinking = null;
             bar(-1);
             $("load").disabled = false;
+            $("clear-cache").disabled = false;
             release();
             status(text, true);
             break;
@@ -455,8 +458,18 @@
         downloading = true;
         bar(0);
         $("load").disabled = true;
+        $("clear-cache").disabled = true;
         status("waiting for the worker");
         worker.postMessage({ kind: "decide-load", url: entry.url, config: entry.config, readout: entry.readout });
+      };
+
+      $("clear-cache").onclick = async () => {
+        if (downloading) return;
+        try {
+          status(cacheClearedText(await clearModelCache()));
+        } catch (err) {
+          status("cannot clear the model cache: " + err, true);
+        }
       };
     </script>
   </body>
