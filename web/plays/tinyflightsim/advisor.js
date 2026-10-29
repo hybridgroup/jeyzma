@@ -314,6 +314,7 @@ worker.onmessage = (event) => {
       downloading = false;
       bar(-1);
       $("load").disabled = false;
+      $("clear-cache").disabled = false;
       $("preset").disabled = false;
       $("plan").disabled = false;
       status("model loaded, " + text + ". Type an instruction and press Plan.");
@@ -328,6 +329,7 @@ worker.onmessage = (event) => {
       downloading = false;
       bar(-1);
       $("load").disabled = false;
+      $("clear-cache").disabled = false;
       $("preset").disabled = false;
       const p = pending;
       pending = null;
@@ -345,10 +347,20 @@ $("load").onclick = () => {
   downloading = true;
   bar(0);
   $("load").disabled = true;
+  $("clear-cache").disabled = true;
   $("preset").disabled = true;
   $("plan").disabled = true;
   status("waiting for the worker");
   worker.postMessage({ kind: "decide-load", url: entry.url, config: entry.config, readout: entry.readout });
+};
+
+$("clear-cache").onclick = async () => {
+  if (downloading) return;
+  try {
+    status(cacheClearedText(await clearModelCache()));
+  } catch (err) {
+    status("cannot clear the model cache: " + err, true);
+  }
 };
 
 $("plan").onclick = () => makePlan();

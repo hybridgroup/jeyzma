@@ -53,6 +53,8 @@
   #advisor p { margin: 6px 0; }
   #advisor .field { display: flex; gap: 6px; }
   #advisor select { flex: 1; min-width: 0; }
+  #advisor .link-button { background: none; border: 0; color: var(--muted); font-size: 12px; margin-top: 6px; padding: 0; text-decoration: underline; cursor: pointer; }
+  #advisor .link-button:hover { color: var(--text); }
   #advisor progress { width: 100%; }
   #advisor .bad { color: var(--bad); }
   #advisor .credits { font-size: 12px; color: var(--muted); }
@@ -139,6 +141,7 @@
       <select id="preset" aria-label="Model choice"></select>
       <button id="load">Load</button>
     </div>
+    <button id="clear-cache" class="link-button">Clear model cache</button>
     <progress id="bar" max="100" value="0" hidden></progress>
     <p id="advisor-status">starting</p>
     </section>

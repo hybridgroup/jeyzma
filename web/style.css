@@ -136,6 +136,17 @@ button {
 }
 button:hover { background: var(--orange-dark); }
 button:disabled, button:disabled:hover { background: var(--line); color: var(--faint); cursor: default; }
+.link-button, .link-button:hover, .link-button:disabled, .link-button:disabled:hover {
+  background: none;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 400;
+  margin-top: 6px;
+  padding: 0;
+  text-decoration: underline;
+}
+.link-button:hover { color: var(--text); }
+.link-button:disabled { color: var(--faint); }
 
 #bar {
   appearance: none;
