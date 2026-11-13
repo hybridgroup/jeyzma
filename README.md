@@ -69,7 +69,7 @@ social cards and the three screenshots.
 
 The download comes from
 [llama-cpp-builder](https://github.com/hybridgroup/llama-cpp-builder). It uses
-v0.8.0, the release that yzma v1.31.0 installs. It has shim ABI 11. `DecideMany`
+v1.0.0, the release that yzma v1.33.0 installs. It has shim ABI 14. `DecideMany`
 needs ABI 10 or later to share one state across questions, and d1 needs v0.7.0 or later.
 To use another build, pass its tag, or `latest` for the newest nightly build.
 
